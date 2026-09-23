@@ -5,10 +5,26 @@
 # Database is external (Supabase Postgres via DB_* env vars).
 #
 # Build:  docker build -t appointment-system .
-# Run:    docker run -p 8080:80 --env-file .env appointment-system
+# Run:    docker run -p 10000:10000 --env-file .env appointment-system
+#
+# NOTE: VITE_* values are baked into the JS at build time, so the public
+# Reverb endpoint must be passed as build args on Render (see render.yaml):
+#   --build-arg VITE_REVERB_HOST=<service>.onrender.com
+#   --build-arg VITE_REVERB_PORT=443
+#   --build-arg VITE_REVERB_SCHEME=https
 
 # ---------- Stage 1: frontend assets ----------
 FROM node:22-alpine AS frontend
+ARG VITE_REVERB_APP_KEY=""
+ARG VITE_REVERB_HOST="localhost"
+ARG VITE_REVERB_PORT="443"
+ARG VITE_REVERB_SCHEME="https"
+ARG VITE_APP_NAME="Appointment System"
+ENV VITE_REVERB_APP_KEY=$VITE_REVERB_APP_KEY \
+    VITE_REVERB_HOST=$VITE_REVERB_HOST \
+    VITE_REVERB_PORT=$VITE_REVERB_PORT \
+    VITE_REVERB_SCHEME=$VITE_REVERB_SCHEME \
+    VITE_APP_NAME=$VITE_APP_NAME
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts

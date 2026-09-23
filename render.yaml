@@ -1,0 +1,103 @@
+# Render Blueprint — Appointment System (Docker web service)
+# Deploy: connect repo in Render → New → Blueprint → select this file.
+# Secrets (sync: false) must be filled in the Render dashboard on first deploy.
+# After deploy, set an external pinger (e.g. cron-job.org) on
+#   https://<service>.onrender.com/cron/run?key=<CRON_SECRET>
+# every 15 minutes to drive reminders / reconcile / summaries.
+
+services:
+  - type: web
+    name: appointment-system
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /up
+    envVars:
+      # --- Laravel core ---
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      # TODO: replace with your real Render URL after first deploy.
+      - key: APP_URL
+        value: https://appointment-system.onrender.com
+      - key: APP_KEY
+        generateValue: true
+      - key: APP_TIMEZONE
+        value: Africa/Lagos
+      - key: LOG_CHANNEL
+        value: stderr
+
+      # --- Database (Supabase Postgres, keep your existing values) ---
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        value: aws-0-eu-central-1.pooler.supabase.com
+      - key: DB_PORT
+        value: 5432
+      - key: DB_DATABASE
+        value: postgres
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+
+      # --- Sessions / cache (database — Render disk is ephemeral, file would log everyone out on restart) ---
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_SECURE_COOKIE
+        value: true
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+
+      # --- Realtime (server-to-server stays in-container; browsers go via the nginx /app/* proxy) ---
+      - key: BROADCAST_CONNECTION
+        value: reverb
+      - key: REVERB_APP_ID
+        generateValue: true
+      - key: REVERB_APP_KEY
+        generateValue: true
+      - key: REVERB_APP_SECRET
+        generateValue: true
+      - key: REVERB_HOST
+        value: localhost
+      - key: REVERB_PORT
+        value: 8080
+      - key: REVERB_SCHEME
+        value: http
+      # TODO: must match APP_URL's host (no scheme, no port).
+      - key: REVERB_PUBLIC_HOST
+        value: appointment-system.onrender.com
+      - key: REVERB_PUBLIC_PORT
+        value: 443
+      - key: REVERB_PUBLIC_SCHEME
+        value: https
+
+      # --- Mail (copy from local .env) ---
+      - key: MAIL_MAILER
+        value: smtp
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: 587
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM_ADDRESS
+        value: notifications@yourhospital.com
+      - key: MAIL_FROM_NAME
+        value: Hospital Appointment System
+
+      # --- Payments (test keys work; swap to live when ready) ---
+      - key: PAYSTACK_SECRET
+        sync: false
+      - key: PAYSTACK_PUBLIC_KEY
+        sync: false
+
+      # --- Scheduler trigger + container behavior ---
+      - key: CRON_SECRET
+        generateValue: true
+      - key: RUN_MIGRATIONS
+        value: true

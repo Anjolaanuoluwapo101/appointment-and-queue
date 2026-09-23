@@ -3,6 +3,12 @@ set -e
 
 cd /var/www/html
 
+# Render routes public traffic to $PORT — point nginx at it.
+# Defaults to 10000 locally so `docker run` without -e PORT works.
+NGINX_PORT="${PORT:-10000}"
+sed -i "s/^\(\s*\)listen [0-9]\+;/\1listen ${NGINX_PORT};/" /etc/nginx/sites-enabled/default
+nginx -t
+
 # Runtime wiring (env vars are only available at container start,
 # so caching + storage link happen here, not at build time).
 php artisan storage:link --no-interaction || true

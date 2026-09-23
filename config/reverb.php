@@ -99,4 +99,21 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Public Browser Endpoint
+    |--------------------------------------------------------------------------
+    |
+    | Where browsers reach Reverb. Behind a single-port host (Render) this
+    | is the app domain itself — nginx proxies /app/* to the local server.
+    | Null values fall back to the Vite build-time variables in echo.js.
+    |
+    */
+
+    'public' => [
+        'host' => env('REVERB_PUBLIC_HOST'),
+        'port' => env('REVERB_PUBLIC_PORT'),
+        'scheme' => env('REVERB_PUBLIC_SCHEME'),
+    ],
+
 ];

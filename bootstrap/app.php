@@ -17,6 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Behind Render's TLS-terminating proxy (and any PaaS alike).
+        $middleware->trustProxies(at: '*');
         $middleware->web(append: [
             HandleInertiaRequests::class,
             ResolveHospital::class,
