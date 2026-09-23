@@ -97,7 +97,7 @@ class ScheduleController extends Controller
         return redirect('/admin/schedules')->with('status', 'Schedule updated and future slots regenerated.');
     }
 
-    public function destroy(PractitionerSchedule $schedule): RedirectResponse
+    public function destroy(Request $request, PractitionerSchedule $schedule): RedirectResponse
     {
         $conflicts = $this->bookedFutureSlots($schedule);
         if ($conflicts->isNotEmpty()) {

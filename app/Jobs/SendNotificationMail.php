@@ -19,6 +19,11 @@ class SendNotificationMail implements ShouldQueue
 
     public int $tries = 3;
 
+    /** @var array<int, int> */
+    public array $backoff = [30, 120];
+
+    public int $timeout = 60;
+
     public function __construct(public int $notificationId) {}
 
     public function handle(): void

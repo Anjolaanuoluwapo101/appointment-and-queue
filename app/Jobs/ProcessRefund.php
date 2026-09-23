@@ -24,6 +24,11 @@ class ProcessRefund implements ShouldQueue
 
     public int $tries = 3;
 
+    /** @var array<int, int> */
+    public array $backoff = [30, 120];
+
+    public int $timeout = 60;
+
     public function __construct(public int $appointmentId) {}
 
     public function handle(PaymentService $payments, NotificationService $notices): void
@@ -65,7 +70,9 @@ class ProcessRefund implements ShouldQueue
         $appointment = Appointment::find($this->appointmentId);
 
         if ($appointment === null) {
-            Log::error("Auto-refund failed after retries for missing appointment {$this->appointmentId}.");
+            Log::error('Auto-refund failed after retries for missing appointment.', [
+                'appointment_id' => $this->appointmentId,
+            ]);
 
             return;
         }
@@ -89,6 +96,9 @@ class ProcessRefund implements ShouldQueue
             '/admin/departments'
         );
 
-        Log::error("Auto-refund failed after retries. Reference {$reference} needs manual resolution.");
+        Log::error('Auto-refund failed after retries.', [
+            'payment_reference' => $reference,
+            'appointment_id' => $this->appointmentId,
+        ]);
     }
 }

@@ -150,10 +150,34 @@ class QueueService
         User $actor,
     ): QueueEntry {
         return tap(DB::transaction(function () use ($department, $practitionerId, $patientData, $receiptNo, $method, $actor): QueueEntry {
-            $patient = Patient::firstOrCreate(
-                ['hospital_id' => $department->hospital_id, 'phone' => $patientData['phone']],
-                ['full_name' => $patientData['full_name']]
-            );
+            $patientNumber = $patientData['patient_number'] ?? null;
+            $patient = null;
+
+            if (! empty($patientNumber)) {
+                $patient = Patient::where('hospital_id', $department->hospital_id)
+                    ->where('patient_number', $patientNumber)
+                    ->first();
+            }
+
+            if ($patient === null) {
+                $patient = Patient::where('hospital_id', $department->hospital_id)
+                    ->where('phone', $patientData['phone'])
+                    ->first();
+            }
+
+            if ($patient === null) {
+                $patient = Patient::create([
+                    'hospital_id' => $department->hospital_id,
+                    'patient_number' => $patientNumber,
+                    'full_name' => $patientData['full_name'],
+                    'phone' => $patientData['phone'],
+                ]);
+            } else {
+                $patient->update([
+                    'full_name' => $patientData['full_name'],
+                    'phone' => $patientData['phone'],
+                ]);
+            }
 
             $appointment = Appointment::create([
                 'hospital_id' => $department->hospital_id,
@@ -185,21 +209,56 @@ class QueueService
     }
 
     /**
+     * Atomically completes any currently active patient (CALLED / IN_CONSULTATION)
+     * for the given department/practitioner and calls the next waiting patient.
+     *
+     * @return array{completed: ?QueueEntry, next: ?QueueEntry}
+     */
+    public function completeAndCallNext(Department $department, ?int $practitionerId, User $actor): array
+    {
+        return DB::transaction(function () use ($department, $practitionerId, $actor): array {
+            $day = Carbon::now($department->hospital->timezone ?? 'Africa/Lagos')->toDateString();
+
+            $active = QueueEntry::where('department_id', $department->id)
+                ->whereDate('queue_date', $day)
+                ->whereIn('status', [QueueEntry::STATUS_CALLED, QueueEntry::STATUS_IN_CONSULTATION])
+                ->when($practitionerId !== null, fn ($query) => $query->where('practitioner_id', $practitionerId))
+                ->lockForUpdate()
+                ->first();
+
+            $completed = null;
+            if ($active !== null) {
+                $completed = $this->complete($active, $actor);
+            }
+
+            $next = $this->callNext($department, $practitionerId, $actor);
+
+            return [
+                'completed' => $completed,
+                'next' => $next,
+            ];
+        });
+    }
+
+    /**
      * Calls the next waiting entry: recalled entries first, then FIFO.
      */
     public function callNext(Department $department, ?int $practitionerId, User $actor): ?QueueEntry
     {
-        $entry = $this->orderedWaiting($department)
-            ->when($practitionerId !== null, fn ($query) => $query->where('practitioner_id', $practitionerId))
-            ->first();
+        return DB::transaction(function () use ($department, $practitionerId, $actor): ?QueueEntry {
+            $entry = $this->orderedWaiting($department)
+                ->when($practitionerId !== null, fn ($query) => $query->where('practitioner_id', $practitionerId))
+                ->lockForUpdate()
+                ->first();
 
-        if ($entry === null) {
-            return null;
-        }
+            if ($entry === null) {
+                return null;
+            }
 
-        $this->call($entry, $actor);
+            $this->call($entry, $actor);
 
-        return $entry->fresh();
+            return $entry->fresh();
+        });
     }
 
     /**
@@ -207,35 +266,39 @@ class QueueService
      */
     public function call(QueueEntry $entry, User $actor): QueueEntry
     {
-        if (! in_array($entry->status, [QueueEntry::STATUS_WAITING, QueueEntry::STATUS_SKIPPED], true)) {
-            throw ValidationException::withMessages(['entry' => 'Only waiting entries can be called.']);
-        }
+        return DB::transaction(function () use ($entry, $actor): QueueEntry {
+            $locked = QueueEntry::where('id', $entry->id)->lockForUpdate()->first();
 
-        $entry->update([
-            'status' => QueueEntry::STATUS_CALLED,
-            'is_recalled' => false,
-            'called_at' => now(),
-            'action_by' => $actor->id,
-        ]);
+            if ($locked === null || ! in_array($locked->status, [QueueEntry::STATUS_WAITING, QueueEntry::STATUS_SKIPPED], true)) {
+                throw ValidationException::withMessages(['entry' => 'Only waiting entries can be called.']);
+            }
 
-        $fresh = $entry->fresh();
-        $room = $fresh->department->room_label;
-        $patient = $fresh->patient;
+            $locked->update([
+                'status' => QueueEntry::STATUS_CALLED,
+                'is_recalled' => false,
+                'called_at' => now(),
+                'action_by' => $actor->id,
+            ]);
 
-        $this->notices->send(
-            $patient->user, $fresh->hospital_id, 'called',
-            "Called — {$fresh->queue_number}",
-            'Please proceed'.($room !== null ? " to {$room}." : '.'),
-            $fresh->appointment_id !== null ? "/patient/appointments/{$fresh->appointment_id}" : null
-        );
+            $fresh = $locked->fresh();
+            $room = $fresh->department->room_label;
+            $patient = $fresh->patient;
 
-        AuditLog::record($fresh->hospital_id, $actor->id, 'queue_called', $fresh,
-            ['status' => QueueEntry::STATUS_WAITING], ['status' => QueueEntry::STATUS_CALLED]);
+            $this->notices->send(
+                $patient->user, $fresh->hospital_id, 'called',
+                "Called — {$fresh->queue_number}",
+                'Please proceed'.($room !== null ? " to {$room}." : '.'),
+                $fresh->appointment_id !== null ? "/patient/appointments/{$fresh->appointment_id}" : null
+            );
 
-        $this->broadcast($fresh);
-        $this->sendProgressiveNotices($fresh->department);
+            AuditLog::record($fresh->hospital_id, $actor->id, 'queue_called', $fresh,
+                ['status' => QueueEntry::STATUS_WAITING], ['status' => QueueEntry::STATUS_CALLED]);
 
-        return $fresh;
+            $this->broadcast($fresh);
+            $this->sendProgressiveNotices($fresh->department);
+
+            return $fresh;
+        });
     }
 
     /**
@@ -382,13 +445,13 @@ class QueueService
      *
      * @return array<string, mixed>
      */
-    public function snapshot(Department $department, ?string $date = null): array
+    public function snapshot(Department $department, ?string $date = null, bool $public = false): array
     {
         $day = $date ?? Carbon::now($department->hospital->timezone ?? 'Africa/Lagos')->toDateString();
 
         $entries = QueueEntry::where('department_id', $department->id)
             ->whereDate('queue_date', $day)
-            ->with(['patient:id,full_name', 'practitioner:id,full_name'])
+            ->with(['patient:id,patient_number,full_name', 'practitioner:id,full_name', 'appointment:id,is_walk_in,payment_status,payment_mode,status'])
             ->orderByDesc('is_recalled')
             ->orderBy('id')
             ->get();
@@ -398,13 +461,19 @@ class QueueService
             ->sortByDesc('called_at')
             ->first();
 
+        // Public payloads (display board, public broadcast channel) carry
+        // queue numbers only — never patient or practitioner names.
+        $present = fn ($entry) => $public
+            ? $entry->only('id', 'queue_number', 'status')
+            : $entry;
+
         return [
             'department' => $department->only('id', 'name', 'room_label'),
             'date' => $day,
-            'serving' => $serving?->only('id', 'queue_number', 'status'),
-            'waiting' => $entries->where('status', QueueEntry::STATUS_WAITING)->values(),
-            'skipped' => $entries->where('status', QueueEntry::STATUS_SKIPPED)->values(),
-            'cancelled' => $entries->where('status', QueueEntry::STATUS_CANCELLED)->values(),
+            'serving' => $serving !== null ? $present($serving) : null,
+            'waiting' => $entries->where('status', QueueEntry::STATUS_WAITING)->map($present)->values(),
+            'skipped' => $entries->where('status', QueueEntry::STATUS_SKIPPED)->map($present)->values(),
+            'cancelled' => $entries->where('status', QueueEntry::STATUS_CANCELLED)->map($present)->values(),
             'completed_count' => $entries->where('status', QueueEntry::STATUS_COMPLETED)->count(),
         ];
     }
@@ -434,17 +503,29 @@ class QueueService
             $department = $appointment->department;
             $day = Carbon::now($department->hospital->timezone ?? 'Africa/Lagos')->toDateString();
 
-            $sequence = QueueNumberSequence::lockForUpdate()
-                ->where('hospital_id', $appointment->hospital_id)
+            $sequence = QueueNumberSequence::where('hospital_id', $appointment->hospital_id)
                 ->where('department_id', $appointment->department_id)
                 ->whereDate('queue_date', $day)
-                ->first()
-                ?? QueueNumberSequence::create([
-                    'hospital_id' => $appointment->hospital_id,
-                    'department_id' => $appointment->department_id,
-                    'queue_date' => $day,
-                    'last_number' => 0,
-                ]);
+                ->lockForUpdate()
+                ->first();
+
+            if ($sequence === null) {
+                try {
+                    $sequence = QueueNumberSequence::create([
+                        'hospital_id' => $appointment->hospital_id,
+                        'department_id' => $appointment->department_id,
+                        'queue_date' => $day,
+                        'last_number' => 0,
+                    ]);
+                } catch (\Throwable $e) {
+                    $sequence = QueueNumberSequence::where('hospital_id', $appointment->hospital_id)
+                        ->where('department_id', $appointment->department_id)
+                        ->whereDate('queue_date', $day)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                }
+            }
+
             $sequence->increment('last_number');
 
             $number = $department->queue_prefix.str_pad((string) $sequence->fresh()->last_number, 3, '0', STR_PAD_LEFT);
@@ -483,7 +564,7 @@ class QueueService
 
     private function broadcast(QueueEntry $entry): void
     {
-        $entry->loadMissing(['department', 'patient:id,full_name']);
+        $entry->loadMissing(['department', 'patient:id,patient_number,full_name']);
 
         QueueUpdated::dispatch($entry->department_id);
         PatientQueueUpdated::dispatch($entry->id);

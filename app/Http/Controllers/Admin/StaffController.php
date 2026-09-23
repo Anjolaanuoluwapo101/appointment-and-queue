@@ -110,7 +110,12 @@ class StaffController extends Controller
         abort_if($staff->hospital_id !== $request->user()->hospital_id, 403);
         abort_if(! $staff->isStaff(), 403);
 
-        $staff->update(['is_active' => ! $staff->is_active]);
+        $newStatus = ! $staff->is_active;
+        $staff->update(['is_active' => $newStatus]);
+
+        if ($staff->role === User::ROLE_PRACTITIONER) {
+            Practitioner::where('user_id', $staff->id)->update(['is_active' => $newStatus]);
+        }
 
         AuditLog::record($staff->hospital_id, $request->user()->id, 'staff_status_toggled', $staff);
 

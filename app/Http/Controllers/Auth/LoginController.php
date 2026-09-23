@@ -71,6 +71,14 @@ class LoginController extends Controller
 
     private function homeFor(User $user): string
     {
-        return $user->role === User::ROLE_PATIENT ? '/patient/dashboard' : '/staff/dashboard';
+        if ($user->role === User::ROLE_PATIENT) {
+            return '/patient/dashboard';
+        }
+
+        if ($user->role === User::ROLE_PRACTITIONER) {
+            return '/staff/my-queue';
+        }
+
+        return '/staff/dashboard';
     }
 }

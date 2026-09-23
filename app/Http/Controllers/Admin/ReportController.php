@@ -10,6 +10,7 @@ use App\Models\Patient;
 use App\Models\Payment;
 use App\Models\Practitioner;
 use App\Models\QueueEntry;
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -96,6 +97,7 @@ class ReportController extends Controller
             ->whereDate('scheduled_at', '<=', $filters['to'])
             ->when($filters['department_id'], fn ($query, $id) => $query->where('department_id', $id))
             ->when($filters['practitioner_id'], fn ($query, $id) => $query->where('practitioner_id', $id))
+            ->with('payment')
             ->limit(2000)
             ->get();
 
@@ -116,6 +118,9 @@ class ReportController extends Controller
 
         $total = $appointments->count();
 
+        $deptNames = Department::forHospital($hospitalId)->pluck('name', 'id');
+        $userNames = User::where('hospital_id', $hospitalId)->pluck('name', 'id');
+
         return [
             'appointments' => [
                 'total' => $total,
@@ -124,7 +129,7 @@ class ReportController extends Controller
                     ? round($appointments->where('reschedule_count', '>', 0)->count() / $total * 100, 1)
                     : 0,
                 'avg_lead_hours' => round($appointments->avg(
-                    fn ($a) => $a->scheduled_at->diffInMinutes($a->created_at, false) / 60
+                    fn ($a) => $a->created_at->diffInMinutes($a->scheduled_at, false) / 60
                 ) ?? 0, 1),
                 'cancel_reasons' => $appointments->whereNotNull('cancellation_reason')->countBy('cancellation_reason')->all(),
             ],
@@ -136,11 +141,11 @@ class ReportController extends Controller
                 'skipped' => $entries->where('status', QueueEntry::STATUS_SKIPPED)->count(),
                 'recalled' => $entries->where('is_recalled', true)->count(),
                 'avg_wait_minutes' => round($entries->whereNotNull('called_at')->avg(
-                    fn ($e) => $e->called_at->diffInMinutes($e->created_at)
+                    fn ($e) => $e->created_at->diffInMinutes($e->called_at)
                 ) ?? 0, 1),
                 'avg_consult_minutes' => round($entries
                     ->whereNotNull('started_consultation_at')->whereNotNull('completed_at')->avg(
-                        fn ($e) => $e->completed_at->diffInMinutes($e->started_consultation_at)
+                        fn ($e) => $e->started_consultation_at->diffInMinutes($e->completed_at)
                     ) ?? 0, 1),
                 'consult_by_practitioner' => $entries->whereNotNull('practitioner_id')
                     ->groupBy('practitioner.full_name')->map->count()->all(),
@@ -168,11 +173,19 @@ class ReportController extends Controller
                     ->whereDate('created_at', '<=', $filters['to'])
                     ->count(),
                 'returning_share_pct' => $this->returningShare($hospitalId, $filters),
-                'volume_by_department' => $appointments->groupBy('department_id')->map->count()->all(),
+                'volume_by_department' => $appointments->groupBy('department_id')
+                    ->mapWithKeys(fn ($rows, $id) => [$deptNames[$id] ?? "Department #{$id}" => $rows->count()])
+                    ->all(),
             ],
             'staff' => [
-                'check_ins_by_user' => $appointments->whereNotNull('checked_in_by')->countBy('checked_in_by')->all(),
-                'queue_actions_by_user' => $entries->whereNotNull('action_by')->countBy('action_by')->all(),
+                'check_ins_by_staff' => $appointments->whereNotNull('checked_in_by')
+                    ->countBy('checked_in_by')
+                    ->mapWithKeys(fn ($n, $id) => [$userNames[$id] ?? "User #{$id}" => $n])
+                    ->all(),
+                'queue_actions_by_staff' => $entries->whereNotNull('action_by')
+                    ->countBy('action_by')
+                    ->mapWithKeys(fn ($n, $id) => [$userNames[$id] ?? "User #{$id}" => $n])
+                    ->all(),
             ],
         ];
     }
@@ -180,11 +193,15 @@ class ReportController extends Controller
     /** @param Collection<int, Appointment> $appointments */
     private function avgClearance($appointments): float
     {
+        // Desk clearance only: time from check-in to the manual payment.
+        // Pre-paid online visits never queued at a desk, so they are out.
         $minutes = $appointments
             ->whereNotNull('checked_in_at')
             ->map(fn ($a) => [$a, $a->payment])
-            ->filter(fn ($pair) => $pair[1] !== null && $pair[1]->paid_at !== null)
-            ->map(fn ($pair) => $pair[1]->paid_at->diffInMinutes($pair[0]->checked_in_at, false));
+            ->filter(fn ($pair) => $pair[1] !== null
+                && $pair[1]->provider === Payment::PROVIDER_MANUAL
+                && $pair[1]->paid_at !== null)
+            ->map(fn ($pair) => max(0, $pair[0]->checked_in_at->diffInMinutes($pair[1]->paid_at, false)));
 
         return round($minutes->avg() ?? 0, 1);
     }

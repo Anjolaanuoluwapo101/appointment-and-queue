@@ -24,11 +24,37 @@ class QueueController extends Controller
     public function dashboard(Request $request, QueueService $queue): Response
     {
         $department = $this->department($request);
+        $activeDepts = Department::where('is_active', true)->orderBy('name')->get(['id', 'name', 'room_label']);
+
+        $overview = $activeDepts->map(function ($dept) use ($queue) {
+            $snap = $queue->snapshot($dept);
+
+            return [
+                'id' => $dept->id,
+                'name' => $dept->name,
+                'room_label' => $dept->room_label,
+                'waiting_count' => count($snap['waiting']),
+                'serving_number' => $snap['serving']?->queue_number ?? null,
+                'serving_patient' => $snap['serving']?->patient?->full_name ?? null,
+            ];
+        });
+
+        $today = Carbon::now($department?->hospital->timezone ?? 'Africa/Lagos')->toDateString();
+
+        $todayArrivals = Appointment::whereDate('scheduled_at', $today)
+            ->whereIn('status', [Appointment::STATUS_SCHEDULED, Appointment::STATUS_PENDING_CLEARANCE])
+            ->when($department !== null, fn ($query) => $query->where('department_id', $department->id))
+            ->with(['patient:id,patient_number,full_name,phone', 'department:id,name', 'practitioner:id,full_name'])
+            ->orderBy('scheduled_at')
+            ->limit(30)
+            ->get();
 
         return Inertia::render('Staff/Queue/Dashboard', [
-            'departments' => Department::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'departments' => $activeDepts,
             'department_id' => $department?->id,
+            'overview' => $overview,
             'snapshot' => $department !== null ? $queue->snapshot($department) : null,
+            'today_arrivals' => $todayArrivals,
         ]);
     }
 
@@ -105,6 +131,7 @@ class QueueController extends Controller
         $validated = $request->validate([
             'department_id' => ['required', 'integer', 'exists:departments,id'],
             'practitioner_id' => ['nullable', 'integer', 'exists:practitioners,id'],
+            'patient_number' => ['nullable', 'string', 'max:50'],
             'full_name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:32'],
             'receipt_no' => ['required', 'string', 'max:64'],
@@ -114,7 +141,11 @@ class QueueController extends Controller
         $entry = $queue->walkIn(
             Department::findOrFail($validated['department_id']),
             $validated['practitioner_id'] ?? null,
-            ['full_name' => $validated['full_name'], 'phone' => $validated['phone']],
+            [
+                'patient_number' => $validated['patient_number'] ?? null,
+                'full_name' => $validated['full_name'],
+                'phone' => $validated['phone'],
+            ],
             $validated['receipt_no'],
             $validated['method'],
             $request->user()
@@ -135,6 +166,29 @@ class QueueController extends Controller
         $entry = $queue->callNext($department, $this->actingPractitionerId($request), $request->user());
 
         return back()->with('status', $entry !== null ? "Called {$entry->queue_number}." : 'Nobody waiting.');
+    }
+
+    public function completeAndCallNext(Request $request, QueueService $queue): RedirectResponse
+    {
+        $department = $this->department($request);
+
+        if ($department === null) {
+            return back()->withErrors(['queue' => 'Choose a department first.']);
+        }
+
+        $res = $queue->completeAndCallNext($department, $this->actingPractitionerId($request), $request->user());
+
+        $statusParts = [];
+        if ($res['completed'] !== null) {
+            $statusParts[] = "Completed consultation for {$res['completed']->queue_number}.";
+        }
+        if ($res['next'] !== null) {
+            $statusParts[] = "Called next patient {$res['next']->queue_number}.";
+        } else {
+            $statusParts[] = 'No further patients waiting in queue.';
+        }
+
+        return back()->with('status', implode(' ', $statusParts));
     }
 
     public function call(QueueEntry $entry, QueueService $queue): RedirectResponse
@@ -213,6 +267,7 @@ class QueueController extends Controller
         $user = request()->user();
 
         if ($user->role === User::ROLE_PRACTITIONER
+            && $entry->practitioner_id !== null
             && $entry->practitioner_id !== $user->practitioner?->id
         ) {
             abort(403);

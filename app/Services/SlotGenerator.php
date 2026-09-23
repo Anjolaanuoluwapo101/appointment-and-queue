@@ -83,6 +83,8 @@ class SlotGenerator
 
             if ($slot->wasRecentlyCreated) {
                 $created++;
+            } elseif ($slot->capacity !== $schedule->max_per_slot && $slot->booked_count <= $schedule->max_per_slot) {
+                $slot->update(['capacity' => $schedule->max_per_slot]);
             }
         }
 

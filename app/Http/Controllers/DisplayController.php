@@ -18,7 +18,7 @@ class DisplayController extends Controller
         abort_unless($department->is_active, 404);
 
         return Inertia::render('Display/Board', [
-            'snapshot' => $queue->snapshot($department),
+            'snapshot' => $queue->snapshot($department, null, true),
         ]);
     }
 }

@@ -53,14 +53,34 @@ export default function Reports() {
         setTimeout(() => setExportingPdf(false), 2000);
     };
 
+    const label = (k) => k.replaceAll('_', ' ');
+
+    const value = (v) => {
+        if (v !== null && typeof v === 'object') {
+            const rows = Object.entries(v);
+            if (rows.length === 0) return <span className="text-gray-400">—</span>;
+            return (
+                <ul className="mt-1 space-y-1">
+                    {rows.map(([sk, sv]) => (
+                        <li key={sk} className="flex justify-between gap-2 text-sm">
+                            <span className="text-gray-500">{label(String(sk))}</span>
+                            <span className="font-semibold text-gray-800">{String(sv)}</span>
+                        </li>
+                    ))}
+                </ul>
+            );
+        }
+        return <span className="font-bold text-gray-900 text-base">{String(v)}</span>;
+    };
+
     const group = (title, obj) => (
         <section className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h2 className="text-xl font-bold text-gray-800 mb-4">{title}</h2>
             <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {Object.entries(obj ?? {}).map(([k, v]) => (
                     <li key={k} className="p-3 bg-gray-50 rounded-lg border border-gray-100 text-sm">
-                        <span className="font-medium text-gray-500 block uppercase text-xs">{k.replace('_', ' ')}</span>
-                        <span className="font-bold text-gray-900 text-base">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+                        <span className="font-medium text-gray-500 block uppercase text-xs">{label(k)}</span>
+                        {value(v)}
                     </li>
                 ))}
             </ul>

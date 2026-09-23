@@ -60,7 +60,7 @@ class DepartmentController extends Controller
         return redirect('/admin/departments')->with('status', 'Department updated.');
     }
 
-    public function destroy(Department $department): RedirectResponse
+    public function destroy(Request $request, Department $department): RedirectResponse
     {
         if ($department->practitioners()->exists()
             || (Schema::hasTable('appointments') && Appointment::where('department_id', $department->id)->exists())

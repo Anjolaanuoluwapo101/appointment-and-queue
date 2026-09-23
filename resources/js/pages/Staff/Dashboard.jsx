@@ -1,77 +1,120 @@
 import { Link, usePage } from '@inertiajs/react';
+import { Badge } from '../../Components/Badge';
+import { Card, CardContent, CardHeader, CardTitle } from '../../Components/Card';
+import AppLayout from '../../Layouts/AppLayout';
 
 export default function Dashboard() {
     const { auth, today, appointments, queue } = usePage().props;
 
-    const row = (label, value) => (
-        <li>
-            {label}: {value ?? 0}
-        </li>
+    const user = auth?.user;
+
+    const metricCard = (title, count, badgeVariant = 'default') => (
+        <Card className="bg-white border border-zinc-200">
+            <CardHeader className="pb-1 mb-1 border-b-0">
+                <CardTitle className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{title}</CardTitle>
+                <Badge variant={badgeVariant} className="font-mono">{count ?? 0}</Badge>
+            </CardHeader>
+            <CardContent className="space-y-0">
+                <span className="text-2xl font-bold font-mono text-zinc-900">{count ?? 0}</span>
+            </CardContent>
+        </Card>
     );
 
     return (
-        <main style={{ fontFamily: 'Instrument Sans, system-ui, sans-serif', padding: '3rem' }}>
-            <h1>Staff Dashboard</h1>
-            <p>
-                {auth?.user?.name} · {auth?.user?.role} · {today}
-            </p>
-            <p>
-                <Link href="/staff/patients">Patients</Link>
-                {' · '}
-                <Link href="/staff/appointments">Appointments</Link>
-                {' · '}
-                <Link href="/staff/queue">Queue</Link>
-                {' · '}
-                <Link href="/staff/walk-in">Walk-in</Link>
-                {' · '}
-                <Link href="/staff/search">Search</Link>
-                {' · '}
-                <Link href="/notifications">Notifications</Link>
-                {(auth?.user?.role === 'practitioner' || auth?.user?.role === 'admin') && (
-                    <>
-                        {' · '}
-                        <Link href="/staff/my-queue">My queue</Link>
-                    </>
-                )}
-                {auth?.user?.role === 'admin' && (
-                    <>
-                        {' · '}
-                        <Link href="/admin/dashboard">Admin</Link>
-                        {' · '}
-                        <Link href="/admin/departments">Departments</Link>
-                        {' · '}
-                        <Link href="/admin/practitioners">Practitioners</Link>
-                        {' · '}
-                        <Link href="/admin/schedules">Schedules</Link>
-                        {' · '}
-                        <Link href="/admin/bulk-cancellation">Bulk cancellation</Link>
-                        {' · '}
-                        <Link href="/admin/settings">Settings</Link>
-                    </>
-                )}
-            </p>
+        <AppLayout>
+            <div className="space-y-8 max-w-7xl mx-auto bg-white">
+                {/* Dashboard Header Strip */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-100">
+                    <div>
+                        <div className="flex items-center space-x-2">
+                            <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Staff Overview Dashboard</h1>
+                            <Badge variant="outline" className="font-mono text-xs">{today}</Badge>
+                        </div>
+                        <p className="text-xs text-zinc-500 mt-1">
+                            Welcome back, <strong className="text-zinc-900">{user?.name}</strong> · Role: <span className="uppercase font-mono text-zinc-700">{user?.role}</span>
+                        </p>
+                    </div>
 
-            <h2>Today&apos;s appointments</h2>
-            <ul>
-                {row('Scheduled (pending check-in)', appointments.scheduled)}
-                {row('Pending clearance', appointments.pending_clearance)}
-                {row('In queue', appointments.in_queue)}
-                {row('Completed', appointments.completed)}
-                {row('No-show', appointments.no_show)}
-                {row('Cancelled', appointments.cancelled)}
-            </ul>
+                    {/* Quick Access Actions */}
+                    <div className="flex flex-wrap gap-2 text-xs">
+                        <Link href="/staff/queue" className="bg-zinc-900 hover:bg-zinc-800 text-white font-semibold px-3 py-1.5 rounded transition-colors shadow-sm">
+                            Queue Desk
+                        </Link>
+                        <Link href="/staff/walk-in" className="bg-white hover:bg-zinc-50 text-zinc-700 font-medium px-3 py-1.5 rounded border border-zinc-200 transition-colors shadow-sm">
+                            + Walk-In Ticket
+                        </Link>
+                        <Link href="/staff/search" className="bg-white hover:bg-zinc-50 text-zinc-700 font-medium px-3 py-1.5 rounded border border-zinc-200 transition-colors shadow-sm">
+                            Search
+                        </Link>
+                        {(user?.role === 'practitioner' || user?.role === 'admin') && (
+                            <Link href="/staff/my-queue" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3 py-1.5 rounded transition-colors shadow-sm">
+                                My Queue Desk
+                            </Link>
+                        )}
+                        {user?.role === 'admin' && (
+                            <Link href="/admin/dashboard" className="bg-zinc-100 hover:bg-zinc-200 text-zinc-900 font-semibold px-3 py-1.5 rounded border border-zinc-300 transition-colors">
+                                Admin Console
+                            </Link>
+                        )}
+                    </div>
+                </div>
 
-            <h2>Today&apos;s queue</h2>
-            <ul>
-                {row('Waiting', queue.waiting)}
-                {row('Called', queue.called)}
-                {row('In consultation', queue.in_consultation)}
-                {row('Skipped', queue.skipped)}
-                {row('Completed', queue.completed)}
-                {row('Cancelled', queue.cancelled)}
-            </ul>
+                {/* Today's Appointments Section */}
+                <div className="space-y-4">
+                    <h2 className="text-sm font-bold tracking-tight text-zinc-900 uppercase">Today&apos;s Appointments Summary</h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                        {metricCard('Scheduled', appointments?.scheduled, 'outline')}
+                        {metricCard('Pending Clearance', appointments?.pending_clearance, 'amber')}
+                        {metricCard('In Queue', appointments?.in_queue, 'default')}
+                        {metricCard('Completed', appointments?.completed, 'success')}
+                        {metricCard('No-Show', appointments?.no_show, 'destructive')}
+                        {metricCard('Cancelled', appointments?.cancelled, 'destructive')}
+                    </div>
+                </div>
 
-            <Link href="/logout" method="post" as="button">Log out</Link>
-        </main>
+                {/* Today's Queue Section */}
+                <div className="space-y-4">
+                    <h2 className="text-sm font-bold tracking-tight text-zinc-900 uppercase">Today&apos;s Real-Time Queue Summary</h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                        {metricCard('Waiting', queue?.waiting, 'amber')}
+                        {metricCard('Called', queue?.called, 'default')}
+                        {metricCard('In Room', queue?.in_consultation, 'success')}
+                        {metricCard('Skipped', queue?.skipped, 'outline')}
+                        {metricCard('Completed', queue?.completed, 'success')}
+                        {metricCard('Cancelled', queue?.cancelled, 'destructive')}
+                    </div>
+                </div>
+
+                {/* Quick Navigation Quick Bar */}
+                <Card className="bg-white border border-zinc-200">
+                    <CardHeader>
+                        <CardTitle className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Quick System Shortcuts</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-wrap gap-3 text-xs font-medium text-zinc-700">
+                            <Link href="/staff/patients" className="hover:text-zinc-900 underline">Patient Directory</Link>
+                            <span>•</span>
+                            <Link href="/staff/appointments" className="hover:text-zinc-900 underline">Appointment History</Link>
+                            <span>•</span>
+                            <Link href="/notifications" className="hover:text-zinc-900 underline">Delivery Notifications</Link>
+                            {user?.role === 'admin' && (
+                                <>
+                                    <span>•</span>
+                                    <Link href="/admin/departments" className="hover:text-zinc-900 underline">Departments</Link>
+                                    <span>•</span>
+                                    <Link href="/admin/practitioners" className="hover:text-zinc-900 underline">Practitioners</Link>
+                                    <span>•</span>
+                                    <Link href="/admin/schedules" className="hover:text-zinc-900 underline">Schedules</Link>
+                                    <span>•</span>
+                                    <Link href="/admin/bulk-cancellation" className="hover:text-zinc-900 underline">Bulk Cancellation</Link>
+                                    <span>•</span>
+                                    <Link href="/admin/settings" className="hover:text-zinc-900 underline">Settings</Link>
+                                </>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        </AppLayout>
     );
 }

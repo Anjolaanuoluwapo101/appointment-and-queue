@@ -27,14 +27,19 @@ class ReconcilePayments extends Command
         $counts = ['paid' => 0, 'failed' => 0, 'abandoned' => 0];
 
         foreach ($stale as $payment) {
-            if ($payments->verifyByReference($payment)) {
-                $counts['paid']++;
+            try {
+                if ($payments->verifyByReference($payment)) {
+                    $counts['paid']++;
 
+                    continue;
+                }
+            } catch (\Throwable $e) {
+                // Skip updating status on temporary HTTP/API network errors
                 continue;
             }
 
             $payment->update(['status' => Payment::STATUS_ABANDONED]);
-            $payment->appointment->update(['payment_status' => Appointment::PAY_FAILED]);
+            $payment->appointment?->update(['payment_status' => Appointment::PAY_FAILED]);
             $counts['abandoned']++;
         }
 

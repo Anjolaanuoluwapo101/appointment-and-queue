@@ -101,7 +101,7 @@ class BookingService
 
         $oldSlotId = $appointment->slot_id;
 
-        $fresh = DB::transaction(function () use ($appointment, $newSlot): Appointment {
+        $fresh = DB::transaction(function () use ($appointment, $newSlot, $oldSlotId): Appointment {
             $claimed = AppointmentSlot::where('id', $newSlot->id)
                 ->where('is_active', true)
                 ->whereRaw('booked_count < capacity')
@@ -111,7 +111,9 @@ class BookingService
                 throw ValidationException::withMessages(['slot' => 'This slot just filled up. Please choose another.']);
             }
 
-            $appointment->slot?->decrement('booked_count');
+            if ($oldSlotId !== null) {
+                AppointmentSlot::where('id', $oldSlotId)->where('booked_count', '>', 0)->decrement('booked_count');
+            }
 
             $appointment->update([
                 'slot_id' => $newSlot->id,
@@ -144,7 +146,9 @@ class BookingService
         }
 
         $fresh = DB::transaction(function () use ($appointment, $reason): Appointment {
-            $appointment->slot?->decrement('booked_count');
+            if ($appointment->slot_id !== null && $appointment->status === Appointment::STATUS_SCHEDULED) {
+                AppointmentSlot::where('id', $appointment->slot_id)->where('booked_count', '>', 0)->decrement('booked_count');
+            }
 
             $appointment->update([
                 'status' => Appointment::STATUS_CANCELLED,

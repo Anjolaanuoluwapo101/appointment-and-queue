@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Appointment;
 use App\Models\Hospital;
 use App\Services\NotificationService;
+use Carbon\Carbon;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -27,21 +28,22 @@ class SendDailySummaries extends Command
                     continue;
                 }
 
+                $today = Carbon::now($hospital->timezone ?? 'Africa/Lagos')->toDateString();
+
                 $count = Appointment::forHospital($hospital->id)
                     ->where('practitioner_id', $practitioner->id)
-                    ->whereDate('scheduled_at', today()->toDateString())
+                    ->whereDate('scheduled_at', $today)
                     ->where('status', Appointment::STATUS_SCHEDULED)
                     ->count();
 
-                $notices->send(
+                $sent += $notices->sendUnique(
                     $practitioner->user,
                     $hospital->id,
                     'daily_schedule_summary',
                     "Today's schedule: {$count} appointment(s)",
                     $count > 0 ? 'Your first patient details are on your queue board.' : 'No bookings today.',
                     '/staff/my-queue'
-                );
-                $sent++;
+                ) !== null ? 1 : 0;
             }
         }
 

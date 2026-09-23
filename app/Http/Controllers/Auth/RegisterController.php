@@ -11,6 +11,7 @@ use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -28,7 +29,10 @@ class RegisterController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $hospital = Hospital::where('is_active', true)->orderBy('id')->firstOrFail();
+
         $validated = $request->validate([
+            'patient_number' => ['nullable', 'string', 'max:50', Rule::unique('patients', 'patient_number')->where('hospital_id', $hospital->id)],
             'full_name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:32'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
@@ -39,8 +43,6 @@ class RegisterController extends Controller
             'secondary_contact_name' => ['nullable', 'string', 'max:255'],
             'secondary_contact_phone' => ['nullable', 'string', 'max:32'],
         ]);
-
-        $hospital = Hospital::where('is_active', true)->orderBy('id')->firstOrFail();
 
         $user = User::create([
             'name' => $validated['full_name'],
@@ -53,6 +55,7 @@ class RegisterController extends Controller
         Patient::create([
             'hospital_id' => $hospital->id,
             'user_id' => $user->id,
+            'patient_number' => $validated['patient_number'] ?? null,
             'full_name' => $validated['full_name'],
             'phone' => $validated['phone'],
             'email' => $validated['email'],

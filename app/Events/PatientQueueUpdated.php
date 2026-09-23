@@ -7,6 +7,7 @@ use App\Services\QueueService;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -14,7 +15,7 @@ use Illuminate\Queue\SerializesModels;
  * One patient's queue position changed: their dashboard updates live
  * with serving number, patients ahead, and called instruction (PRD §10).
  */
-class PatientQueueUpdated implements ShouldBroadcast
+class PatientQueueUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Appointment;
+use App\Models\Hospital;
 use App\Services\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Console\Attributes\Description;
@@ -20,47 +21,52 @@ class SendReminders extends Command
 {
     public function handle(NotificationService $notices): int
     {
-        $now = Carbon::now();
         $dayBefore = 0;
         $dayOf = 0;
 
-        $tomorrow = Appointment::where('status', Appointment::STATUS_SCHEDULED)
-            ->whereDate('scheduled_at', $now->copy()->addDay()->toDateString())
-            ->with(['patient.user', 'department:id,name'])
-            ->get();
+        foreach (Hospital::where('is_active', true)->get() as $hospital) {
+            $now = Carbon::now($hospital->timezone ?? 'Africa/Lagos');
 
-        foreach ($tomorrow as $appointment) {
-            $sent = $notices->sendUnique(
-                $appointment->patient->user,
-                $appointment->hospital_id,
-                'appointment_reminder_day_before',
-                'Appointment tomorrow',
-                "{$appointment->department->name} on {$appointment->scheduled_at->format('D d M H:i')}.",
-                "/patient/appointments/{$appointment->id}"
-            );
+            $tomorrow = Appointment::forHospital($hospital->id)
+                ->where('status', Appointment::STATUS_SCHEDULED)
+                ->whereDate('scheduled_at', $now->copy()->addDay()->toDateString())
+                ->with(['patient.user', 'department:id,name'])
+                ->get();
 
-            if ($sent !== null) {
-                $dayBefore++;
+            foreach ($tomorrow as $appointment) {
+                $sent = $notices->sendUnique(
+                    $appointment->patient->user,
+                    $appointment->hospital_id,
+                    'appointment_reminder_day_before',
+                    'Appointment tomorrow',
+                    "{$appointment->department->name} on {$appointment->scheduled_at->format('D d M H:i')}.",
+                    "/patient/appointments/{$appointment->id}"
+                );
+
+                if ($sent !== null) {
+                    $dayBefore++;
+                }
             }
-        }
 
-        $upcoming = Appointment::where('status', Appointment::STATUS_SCHEDULED)
-            ->whereBetween('scheduled_at', [$now->copy()->addMinutes(105), $now->copy()->addMinutes(135)])
-            ->with(['patient.user', 'department:id,name'])
-            ->get();
+            $upcoming = Appointment::forHospital($hospital->id)
+                ->where('status', Appointment::STATUS_SCHEDULED)
+                ->whereBetween('scheduled_at', [$now->copy()->addMinutes(105), $now->copy()->addMinutes(135)])
+                ->with(['patient.user', 'department:id,name'])
+                ->get();
 
-        foreach ($upcoming as $appointment) {
-            $sent = $notices->sendUnique(
-                $appointment->patient->user,
-                $appointment->hospital_id,
-                'appointment_reminder_day_of',
-                'Appointment in 2 hours',
-                "{$appointment->department->name} at {$appointment->scheduled_at->format('H:i')}. Please arrive early.",
-                "/patient/appointments/{$appointment->id}"
-            );
+            foreach ($upcoming as $appointment) {
+                $sent = $notices->sendUnique(
+                    $appointment->patient->user,
+                    $appointment->hospital_id,
+                    'appointment_reminder_day_of',
+                    'Appointment in 2 hours',
+                    "{$appointment->department->name} at {$appointment->scheduled_at->format('H:i')}. Please arrive early.",
+                    "/patient/appointments/{$appointment->id}"
+                );
 
-            if ($sent !== null) {
-                $dayOf++;
+                if ($sent !== null) {
+                    $dayOf++;
+                }
             }
         }
 

@@ -109,7 +109,16 @@ class ManagementTest extends TestCase
     {
         $practitioner = $this->user($this->hospital(), User::ROLE_PRACTITIONER);
 
-        $this->actingAs($practitioner)->get('/staff/patients')->assertForbidden();
+        $this->actingAs($practitioner)->get('/staff/patients/create')->assertForbidden();
+    }
+
+    public function test_practitioner_can_access_search_and_patient_directory(): void
+    {
+        $hospital = $this->hospital();
+        $practitioner = $this->user($hospital, User::ROLE_PRACTITIONER);
+
+        $this->actingAs($practitioner)->get('/staff/search')->assertOk();
+        $this->actingAs($practitioner)->get('/staff/patients')->assertOk();
     }
 
     public function test_admin_manages_departments(): void

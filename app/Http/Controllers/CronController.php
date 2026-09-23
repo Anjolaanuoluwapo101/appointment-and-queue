@@ -16,11 +16,11 @@ class CronController extends Controller
 {
     public function run(Request $request): JsonResponse
     {
-        $expectedKey = config('services.cron.key') ?? env('CRON_SECRET', 'lagoon_cron_secret_2026');
+        $expectedKey = (string) config('services.cron.key');
         $providedKey = (string) $request->query('key', $request->header('x-cron-key', ''));
 
         if ($expectedKey === '' || ! hash_equals($expectedKey, $providedKey)) {
-            return response()->json(['error' => 'Unauthorized cron key.'], 401);
+            return response()->json(['error' => 'Unauthorized or unconfigured cron key.'], 401);
         }
 
         // Executes Artisan commands in-memory inside the PHP process (no shell/exec required)

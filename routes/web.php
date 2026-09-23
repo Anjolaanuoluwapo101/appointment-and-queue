@@ -37,9 +37,7 @@ Route::get('/', function () {
         return redirect($user->role === User::ROLE_PATIENT ? '/patient/dashboard' : '/staff/dashboard');
     }
 
-    return Inertia::render('Home', [
-        'status' => 'Inertia + React is wired. Supabase Postgres connected.',
-    ]);
+    return Inertia::render('Home');
 });
 
 Route::middleware(['guest', 'throttle:auth'])->group(function (): void {
@@ -83,11 +81,20 @@ Route::middleware(['auth', 'role:patient'])->prefix('patient')->group(function (
     Route::post('/appointments/{appointment}/reschedule', [BookingController::class, 'reschedule'])->name('patient.appointments.reschedule.store');
 });
 
+Route::middleware(['auth', 'role:receptionist,admin'])->prefix('staff')->group(function (): void {
+    Route::get('/patients/create', [PatientController::class, 'create'])->name('staff.patients.create');
+    Route::post('/patients', [PatientController::class, 'store'])->name('staff.patients.store');
+});
+
 Route::middleware(['auth', 'role:receptionist,practitioner,admin'])->prefix('staff')->group(function (): void {
     Route::get('/dashboard', [StaffDashboardController::class, 'show'])->name('staff.dashboard');
+    Route::get('/search', [SearchController::class, 'search'])->name('staff.search');
+    Route::get('/patients', [PatientController::class, 'index'])->name('staff.patients');
+    Route::get('/patients/{patient}', [PatientController::class, 'show'])->name('staff.patients.show');
 
     Route::get('/queue', [QueueController::class, 'dashboard'])->name('staff.queue');
     Route::post('/queue/call-next', [QueueController::class, 'callNext'])->name('staff.queue.call-next');
+    Route::post('/queue/complete-and-call-next', [QueueController::class, 'completeAndCallNext'])->name('staff.queue.complete-and-call-next');
     Route::post('/queue/{entry}/call', [QueueController::class, 'call'])->name('staff.queue.call');
     Route::post('/queue/{entry}/begin', [QueueController::class, 'begin'])->name('staff.queue.begin');
     Route::post('/queue/{entry}/skip', [QueueController::class, 'skip'])->name('staff.queue.skip');
@@ -99,10 +106,6 @@ Route::middleware(['auth', 'role:receptionist,practitioner,admin'])->prefix('sta
 });
 
 Route::middleware(['auth', 'role:receptionist,admin'])->prefix('staff')->group(function (): void {
-    Route::get('/patients', [PatientController::class, 'index'])->name('staff.patients');
-    Route::get('/patients/create', [PatientController::class, 'create'])->name('staff.patients.create');
-    Route::post('/patients', [PatientController::class, 'store'])->name('staff.patients.store');
-
     Route::get('/appointments', [StaffAppointmentController::class, 'index'])->name('staff.appointments');
     Route::get('/appointments/create', [StaffAppointmentController::class, 'create'])->name('staff.appointments.create');
     Route::post('/appointments', [StaffAppointmentController::class, 'store'])->name('staff.appointments.store');
@@ -157,10 +160,6 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function (): v
     Route::get('/staff/{staff}/edit', [StaffController::class, 'edit'])->name('admin.staff.edit');
     Route::put('/staff/{staff}', [StaffController::class, 'update'])->name('admin.staff.update');
     Route::patch('/staff/{staff}/toggle', [StaffController::class, 'toggleActive'])->name('admin.staff.toggle');
-});
-
-Route::middleware(['auth', 'role:receptionist,admin'])->group(function (): void {
-    Route::get('/staff/search', [SearchController::class, 'search'])->name('staff.search');
 });
 
 Route::middleware('auth')->group(function (): void {

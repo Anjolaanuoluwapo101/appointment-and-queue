@@ -33,7 +33,7 @@ class AppointmentController extends Controller
             'status' => ['nullable', 'string'],
         ]);
 
-        $appointments = Appointment::with(['patient:id,full_name,phone', 'department:id,name', 'practitioner:id,full_name'])
+        $appointments = Appointment::with(['patient:id,patient_number,full_name,phone', 'department:id,name', 'practitioner:id,full_name'])
             ->when($validated['date'] ?? null,
                 fn ($query, $date) => $query->whereDate('scheduled_at', $date),
                 fn ($query) => $query->whereDate('scheduled_at', Carbon::today()->toDateString()))
@@ -76,9 +76,16 @@ class AppointmentController extends Controller
                 ->get();
         }
 
+        $patient = null;
+        if ($phone !== '') {
+            $patient = Patient::where('phone', $phone)
+                ->orWhere('patient_number', $phone)
+                ->first()?->only('id', 'patient_number', 'full_name', 'phone');
+        }
+
         return Inertia::render('Staff/Appointments/Create', [
             'phone' => $phone,
-            'patient' => $phone !== '' ? Patient::where('phone', $phone)->first()?->only('id', 'full_name', 'phone') : null,
+            'patient' => $patient,
             'departments' => Department::where('is_active', true)->orderBy('name')->get(['id', 'name', 'payment_mode', 'base_fee_kobo']),
             'department_id' => is_numeric($departmentId) ? (int) $departmentId : null,
             'practitioner_id' => is_numeric($practitionerId) ? (int) $practitionerId : null,

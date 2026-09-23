@@ -70,7 +70,8 @@ class BulkCancellationController extends Controller
                 $replacementSlot = $this->replacementSlot(
                     (int) $validated['replacement_practitioner_id'],
                     $appointment->department_id,
-                    $validated['date']
+                    $validated['date'],
+                    $appointment->scheduled_at
                 );
             }
 
@@ -115,10 +116,11 @@ class BulkCancellationController extends Controller
             ->when($departmentId !== null, fn ($query) => $query->where('department_id', $departmentId))
             ->whereDate('scheduled_at', $date)
             ->where('status', Appointment::STATUS_SCHEDULED)
+            ->with(['department', 'patient'])
             ->get();
     }
 
-    private function replacementSlot(int $replacementId, int $departmentId, string $date): ?AppointmentSlot
+    private function replacementSlot(int $replacementId, int $departmentId, string $date, ?Carbon $targetTime = null): ?AppointmentSlot
     {
         $replacement = Practitioner::find($replacementId);
 
@@ -130,7 +132,7 @@ class BulkCancellationController extends Controller
             return null;
         }
 
-        return AppointmentSlot::where('practitioner_id', $replacementId)
+        $slots = AppointmentSlot::where('practitioner_id', $replacementId)
             ->where('department_id', $departmentId)
             ->whereDate('date', $date)
             ->where('is_active', true)
@@ -138,7 +140,16 @@ class BulkCancellationController extends Controller
             ->where('starts_at', '>', Carbon::now()->addMinutes(
                 (int) (Setting::get($replacement->hospital_id, Setting::BOOKING_CUTOFF_MINUTES) ?? 120)
             ))
-            ->orderBy('starts_at')
-            ->first();
+            ->get();
+
+        if ($slots->isEmpty()) {
+            return null;
+        }
+
+        if ($targetTime === null) {
+            return $slots->sortBy('starts_at')->first();
+        }
+
+        return $slots->sortBy(fn ($slot) => abs($slot->starts_at->getTimestamp() - $targetTime->getTimestamp()))->first();
     }
 }

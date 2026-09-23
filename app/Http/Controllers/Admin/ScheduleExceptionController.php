@@ -54,6 +54,14 @@ class ScheduleExceptionController extends Controller
 
         $exception = ScheduleException::create($validated + ['hospital_id' => $hospitalId]);
 
+        if ($exception->isDayOff()) {
+            AppointmentSlot::where('practitioner_id', $exception->practitioner_id)
+                ->when($exception->department_id !== null, fn ($query) => $query->where('department_id', $exception->department_id))
+                ->whereDate('date', $exception->date->toDateString())
+                ->where('booked_count', 0)
+                ->update(['is_active' => false]);
+        }
+
         AuditLog::record($hospitalId, $request->user()->id, 'schedule_exception_created', $exception);
 
         $affected = AppointmentSlot::where('practitioner_id', $exception->practitioner_id)

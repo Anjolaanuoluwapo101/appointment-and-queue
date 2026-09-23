@@ -23,17 +23,21 @@ Artisan::command('inspire', function () {
 // Generates upcoming slots on the first ping after midnight
 Schedule::command('slots:generate')
     ->everyFifteenMinutes()
-    ->between('00:00', '06:00');
+    ->between('00:00', '06:00')
+    ->withoutOverlapping(60);
 
 // Reconciles stale pending payments on every 15-minute ping
 Schedule::command('payments:reconcile')
-    ->everyFifteenMinutes();
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(60);
 
 // Sends day-before and 2h day-of reminders
 Schedule::command('reminders:send')
-    ->everyFifteenMinutes();
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(60);
 
 // Sends practitioner morning daily schedule summary on first morning ping after 06:00 AM
 Schedule::command('summaries:send')
     ->everyFifteenMinutes()
-    ->between('06:00', '12:00');
+    ->between('06:00', '12:00')
+    ->withoutOverlapping(60);

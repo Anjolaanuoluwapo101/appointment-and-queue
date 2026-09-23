@@ -7,8 +7,13 @@ use App\Models\AuditLog;
 use App\Models\Hospital;
 use App\Models\Payment;
 use App\Models\PaymentLog;
+use App\Models\User;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Paystack-only collections (PRD §27). Amounts always resolved server-side;
@@ -24,6 +29,35 @@ class PaymentService
     public function secret(Hospital $hospital): ?string
     {
         return $hospital->paystack_secret ?? config('services.paystack.secret');
+    }
+
+    /**
+     * Shared Paystack client: short timeouts so a hung provider cannot
+     * stall a patient-facing request or burn a whole job attempt.
+     */
+    private function client(Hospital $hospital): PendingRequest
+    {
+        return Http::baseUrl(self::BASE_URL)
+            ->withToken((string) $this->secret($hospital))
+            ->connectTimeout(3)
+            ->timeout(10);
+    }
+
+    /**
+     * Retryable when the failure leaves no server-side effect behind:
+     * connection drops and 5xx/429 responses. POST bodies carry our
+     * unique provider reference, so a redelivered initialize is
+     * deduplicated by Paystack instead of double-charging.
+     */
+    private function transientRetry(PendingRequest $request): PendingRequest
+    {
+        // throw: false preserves graceful 4xx handling below — only
+        // transient failures are retried, everything else is returned.
+        return $request->retry(2, 200, function (Throwable $exception): bool {
+            return $exception instanceof ConnectionException
+                || ($exception instanceof RequestException
+                    && ($exception->response->serverError() || $exception->response->status() === 429));
+        }, throw: false);
     }
 
     /**
@@ -43,8 +77,8 @@ class PaymentService
             'status' => Payment::STATUS_PENDING,
         ]);
 
-        $response = Http::withToken((string) $this->secret($appointment->hospital))
-            ->post(self::BASE_URL.'/transaction/initialize', [
+        $response = $this->transientRetry($this->client($appointment->hospital))
+            ->post('/transaction/initialize', [
                 'email' => $email,
                 'amount' => $amountKobo,
                 'reference' => $reference,
@@ -84,8 +118,8 @@ class PaymentService
 
     public function verifyByReference(Payment $payment): bool
     {
-        $response = Http::withToken((string) $this->secret($payment->appointment->hospital))
-            ->get(self::BASE_URL.'/transaction/verify/'.$payment->reference);
+        $response = $this->transientRetry($this->client($payment->appointment->hospital))
+            ->get('/transaction/verify/'.$payment->reference);
 
         PaymentLog::create([
             'hospital_id' => $payment->hospital_id,
@@ -106,8 +140,11 @@ class PaymentService
 
     public function refund(Payment $payment): bool
     {
-        $response = Http::withToken((string) $this->secret($payment->appointment->hospital))
-            ->post(self::BASE_URL.'/refund', [
+        // Deliberately no HTTP-level retry: a response lost after Paystack
+        // executed the refund would double-refund on redelivery. Job-level
+        // retries ($tries on ProcessRefund) own the retry policy instead.
+        $response = $this->client($payment->appointment->hospital)
+            ->post('/refund', [
                 'transaction' => $payment->reference,
                 'amount' => $payment->amount_kobo,
             ]);
@@ -184,10 +221,18 @@ class PaymentService
         ]);
 
         $appointment = $payment->appointment;
+        $previousStatus = $appointment->status;
         $appointment->update([
             'payment_status' => Appointment::PAY_PAID,
             'payment_id' => $payment->id,
         ]);
+
+        if (in_array($previousStatus, [Appointment::STATUS_PENDING_CLEARANCE, Appointment::STATUS_CHECKED_IN], true)) {
+            $fallbackActor = $appointment->patient->user ?? User::where('hospital_id', $appointment->hospital_id)->where('role', User::ROLE_ADMIN)->first();
+            if ($fallbackActor !== null) {
+                app(QueueService::class)->checkIn($appointment->fresh(), $fallbackActor);
+            }
+        }
 
         $this->notices->send(
             $appointment->patient->user, $appointment->hospital_id, 'payment_success',
