@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Patient;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\AppointmentSlot;
+use App\Models\AuditLog;
 use App\Models\Department;
 use App\Models\Practitioner;
 use App\Models\QueueEntry;
@@ -227,5 +228,33 @@ class BookingController extends Controller
         $bookings->reschedule($appointment, AppointmentSlot::findOrFail($validated['slot_id']));
 
         return redirect("/patient/appointments/{$appointment->id}")->with('status', 'Appointment rescheduled. Your payment carries over.');
+    }
+
+    public function confirm(Request $request, Appointment $appointment): RedirectResponse
+    {
+        $this->authorize('update', $appointment);
+
+        abort_unless($appointment->status === Appointment::STATUS_SCHEDULED, 422, 'Only scheduled appointments can be confirmed.');
+
+        if ($appointment->attendance_confirmed_at === null) {
+            $appointment->update(['attendance_confirmed_at' => now()]);
+            AuditLog::record($appointment->hospital_id, $request->user()->id, 'attendance_confirmed', $appointment);
+        }
+
+        return redirect("/patient/appointments/{$appointment->id}")->with('status', 'Attendance confirmed. See you then.');
+    }
+
+    /**
+     * One-click confirm from the reminder email. Public route guarded by
+     * the URL signature instead of login; idempotent by design.
+     */
+    public function confirmViaLink(Appointment $appointment): RedirectResponse
+    {
+        if ($appointment->status === Appointment::STATUS_SCHEDULED && $appointment->attendance_confirmed_at === null) {
+            $appointment->update(['attendance_confirmed_at' => now()]);
+            AuditLog::record($appointment->hospital_id, null, 'attendance_confirmed_via_link', $appointment);
+        }
+
+        return redirect('/login/patient')->with('status', 'Attendance confirmed. Log in to view your appointment.');
     }
 }

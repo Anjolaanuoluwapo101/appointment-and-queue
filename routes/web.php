@@ -79,7 +79,13 @@ Route::middleware(['auth', 'role:patient'])->prefix('patient')->group(function (
     Route::post('/appointments/{appointment}/cancel', [BookingController::class, 'cancel'])->name('patient.appointments.cancel');
     Route::get('/appointments/{appointment}/reschedule', [BookingController::class, 'rescheduleForm'])->name('patient.appointments.reschedule');
     Route::post('/appointments/{appointment}/reschedule', [BookingController::class, 'reschedule'])->name('patient.appointments.reschedule.store');
+    Route::post('/appointments/{appointment}/confirm', [BookingController::class, 'confirm'])->name('patient.appointments.confirm');
 });
+
+// One-click email confirm: public, guarded by URL signature (7-day expiry set at generation).
+Route::get('/appointments/{appointment}/confirm', [BookingController::class, 'confirmViaLink'])
+    ->middleware(['signed', 'throttle:60,1'])
+    ->name('patient.appointments.confirm.link');
 
 Route::middleware(['auth', 'role:receptionist,admin'])->prefix('staff')->group(function (): void {
     Route::get('/patients/create', [PatientController::class, 'create'])->name('staff.patients.create');

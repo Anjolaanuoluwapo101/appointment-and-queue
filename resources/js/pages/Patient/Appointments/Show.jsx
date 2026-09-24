@@ -11,6 +11,7 @@ export default function Show() {
     const [queue, setQueue] = useState(initialQueue ?? null);
     const cancel = useForm({ reason: '' });
     const pay = useForm({});
+    const confirm = useForm({});
 
     const submitCancel = (e) => {
         e.preventDefault();
@@ -21,6 +22,7 @@ export default function Show() {
         appointment.payment_mode === 'online' && ['unpaid', 'pending', 'failed'].includes(appointment.payment_status);
     const cancellable = ['scheduled', 'pending_clearance'].includes(appointment.status);
     const reschedulable = appointment.status === 'scheduled';
+    const confirmable = appointment.status === 'scheduled' && !appointment.attendance_confirmed_at;
 
     useEffect(() => {
         setQueue(initialQueue ?? null);
@@ -129,6 +131,31 @@ export default function Show() {
                                 Pay Online Now
                             </AsyncButton>
                         </div>
+                    )}
+
+                    {confirmable ? (
+                        <div className="bg-emerald-50 p-4 border border-emerald-200 rounded-lg flex items-center justify-between">
+                            <div>
+                                <span className="text-xs font-bold text-zinc-900 block">Will you attend?</span>
+                                <span className="text-xs text-zinc-500">Confirm so the hospital holds your slot</span>
+                            </div>
+                            <AsyncButton
+                                type="button"
+                                loading={confirm.processing}
+                                loadingText="Confirming..."
+                                onClick={() => confirm.post(`/patient/appointments/${appointment.id}/confirm`)}
+                                variant="primary"
+                                className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-4 py-2 rounded text-xs shadow-sm"
+                            >
+                                Confirm Attendance
+                            </AsyncButton>
+                        </div>
+                    ) : (
+                        appointment.attendance_confirmed_at && (
+                            <p className="text-xs font-semibold text-emerald-700">
+                                ✓ Attendance confirmed
+                            </p>
+                        )
                     )}
 
                     {reschedulable && (

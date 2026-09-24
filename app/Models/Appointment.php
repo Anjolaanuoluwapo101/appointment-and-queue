@@ -61,6 +61,7 @@ class Appointment extends Model
         'reschedule_count',
         'checked_in_by',
         'checked_in_at',
+        'attendance_confirmed_at',
     ];
 
     protected $casts = [
@@ -68,6 +69,7 @@ class Appointment extends Model
         'is_walk_in' => 'boolean',
         'reschedule_count' => 'integer',
         'checked_in_at' => 'datetime',
+        'attendance_confirmed_at' => 'datetime',
     ];
 
     /** @return BelongsTo<Patient, $this> */

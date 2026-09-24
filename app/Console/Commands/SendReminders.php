@@ -9,11 +9,13 @@ use Carbon\Carbon;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\URL;
 
 /**
  * Appointment reminders (PRD §14 MVP): day-before for tomorrow's
- * bookings, day-of for slots starting in ~2 hours. Runs every 15
- * minutes; sends are idempotent per appointment per day.
+ * bookings, day-of for slots starting in ~2 hours, plus the attendance
+ * nudge for tomorrow's unconfirmed bookings. Runs every 15 minutes;
+ * sends are idempotent per appointment per day.
  */
 #[Signature('reminders:send')]
 #[Description('Send appointment reminders (day-before and 2-hours-before)')]
@@ -23,6 +25,7 @@ class SendReminders extends Command
     {
         $dayBefore = 0;
         $dayOf = 0;
+        $nudges = 0;
 
         foreach (Hospital::where('is_active', true)->get() as $hospital) {
             $now = Carbon::now($hospital->timezone ?? 'Africa/Lagos');
@@ -68,9 +71,41 @@ class SendReminders extends Command
                     $dayOf++;
                 }
             }
+
+            // Attendance nudge: tomorrow's bookings the patient hasn't
+            // confirmed yet. The signed one-click link is generated with a
+            // day-truncated expiry so the stored URL is byte-identical
+            // across runs and sendUnique() dedupes correctly.
+            $unconfirmed = Appointment::forHospital($hospital->id)
+                ->where('status', Appointment::STATUS_SCHEDULED)
+                ->whereNull('attendance_confirmed_at')
+                ->whereDate('scheduled_at', $now->copy()->addDay()->toDateString())
+                ->with(['patient.user', 'department:id,name'])
+                ->get();
+
+            foreach ($unconfirmed as $appointment) {
+                $confirmUrl = URL::signedRoute(
+                    'patient.appointments.confirm.link',
+                    ['appointment' => $appointment->id],
+                    $now->copy()->startOfDay()->addDays(8)
+                );
+
+                $sent = $notices->sendUnique(
+                    $appointment->patient->user,
+                    $appointment->hospital_id,
+                    'attendance_nudge',
+                    'Will you attend tomorrow?',
+                    "Tap to confirm your {$appointment->department->name} appointment on {$appointment->scheduled_at->format('D d M H:i')}: {$confirmUrl}",
+                    $confirmUrl
+                );
+
+                if ($sent !== null) {
+                    $nudges++;
+                }
+            }
         }
 
-        $this->info("Reminders: {$dayBefore} day-before, {$dayOf} day-of.");
+        $this->info("Reminders: {$dayBefore} day-before, {$dayOf} day-of, {$nudges} nudges.");
 
         return self::SUCCESS;
     }
