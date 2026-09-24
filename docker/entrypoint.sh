@@ -9,6 +9,13 @@ NGINX_PORT="${PORT:-10000}"
 sed -i "s/^\(\s*\)listen [0-9]\+;/\1listen ${NGINX_PORT};/" /etc/nginx/sites-enabled/default
 nginx -t
 
+# Storage must be writable by www-data (php-fpm) and all framework
+# subdirectories must exist — FileStore/FileSession drivers fail with
+# ENOENT under concurrent workers if a nested dir is missing.
+mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+chown -R www-data:www-data storage bootstrap/cache
+chmod -R 775 storage bootstrap/cache
+
 # Runtime wiring (env vars are only available at container start,
 # so caching + storage link happen here, not at build time).
 php artisan storage:link --no-interaction || true

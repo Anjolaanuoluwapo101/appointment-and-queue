@@ -13,6 +13,8 @@ services:
     healthCheckPath: /up
     envVars:
       # --- Laravel core ---
+      - key: APP_NAME
+        value: Intelligent Hospital Queue
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
