@@ -37,11 +37,14 @@ RUN npm run build
 FROM composer:2 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
+# NOTE: --ignore-platform-reqs is safe here — ext-gd and friends are
+# installed in the runtime stage below; this stage only downloads code.
 RUN composer install \
     --no-dev \
     --no-scripts \
     --no-autoloader \
-    --prefer-dist
+    --prefer-dist \
+    --ignore-platform-reqs
 
 # ---------- Stage 3: runtime ----------
 FROM php:8.3-fpm AS app
