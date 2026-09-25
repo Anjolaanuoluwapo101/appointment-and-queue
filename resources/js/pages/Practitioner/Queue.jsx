@@ -97,18 +97,6 @@ export default function Queue() {
         });
     };
 
-    const handleComplete = (entry) => {
-        const url = `/staff/queue/${entry.id}/complete`;
-        performOptimisticAction(`complete-${entry.id}`, url, (prev) => {
-            if (!prev) return prev;
-            return {
-                ...prev,
-                serving: prev.serving?.id === entry.id ? null : prev.serving,
-                waiting: prev.waiting.filter((item) => item.id !== entry.id),
-            };
-        });
-    };
-
     const handleRecall = (entry) => {
         const url = `/staff/queue/${entry.id}/recall`;
         performOptimisticAction(`recall-${entry.id}`, url, (prev) => {
@@ -117,6 +105,18 @@ export default function Queue() {
                 ...prev,
                 skipped: prev.skipped.filter((item) => item.id !== entry.id),
                 waiting: [entry, ...prev.waiting],
+            };
+        });
+    };
+
+    const handleSkip = (entry) => {
+        const url = `/staff/queue/${entry.id}/skip`;
+        performOptimisticAction(`skip-${entry.id}`, url, (prev) => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                waiting: prev.waiting.filter((item) => item.id !== entry.id),
+                skipped: [{ ...entry, status: 'skipped' }, ...(prev.skipped ?? [])],
             };
         });
     };
@@ -206,7 +206,7 @@ export default function Queue() {
                                     )}
                                 </div>
 
-                                {snapshot.serving && (
+                                {snapshot.serving && snapshot.serving?.practitioner?.id === practitioner_id ? (
                                     <div className="flex items-center space-x-2">
                                         <AsyncButton
                                             onClick={handleCompleteAndCallNext}
@@ -218,6 +218,12 @@ export default function Queue() {
                                             Complete & Call Next
                                         </AsyncButton>
                                     </div>
+                                ) : (
+                                    snapshot.serving && (
+                                        <p className="text-xs text-zinc-500 italic">
+                                            With {snapshot.serving?.practitioner?.full_name ?? 'another practitioner'} — actions available on their board.
+                                        </p>
+                                    )
                                 )}
                             </div>
                         </Card>
@@ -264,13 +270,13 @@ export default function Queue() {
                                                         Call
                                                     </AsyncButton>
                                                     <AsyncButton
-                                                        onClick={() => handleComplete(e)}
-                                                        loading={loadingActionId === `complete-${e.id}`}
-                                                        loadingText="Completing..."
+                                                        onClick={() => handleSkip(e)}
+                                                        loading={loadingActionId === `skip-${e.id}`}
+                                                        loadingText="Skipping..."
                                                         variant="outline"
                                                         className="text-[11px] px-2.5 py-1 rounded"
                                                     >
-                                                        Complete
+                                                        Skip
                                                     </AsyncButton>
                                                 </TableCell>
                                             </TableRow>

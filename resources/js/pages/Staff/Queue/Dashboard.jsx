@@ -20,8 +20,17 @@ function getWaitTime(createdAt) {
 function EntryActions({ entry, onAction, loadingId }) {
     const isWorking = (action) => loadingId === `${action}-${entry.id}`;
 
-    return (
-        <span className="inline-flex space-x-1.5 ml-3">
+    // Mirrors the backend state guards in QueueService: only show actions
+    // the entry's status actually allows, so no button can 422.
+    const allowed = {
+        waiting: ['call', 'skip', 'cancel'],
+        called: ['begin', 'skip', 'done', 'cancel'],
+        in_consultation: ['done'],
+        skipped: ['call', 'recall', 'cancel'],
+    }[entry.status] ?? [];
+
+    const buttons = {
+        call: (
             <AsyncButton
                 onClick={() => onAction(`call-${entry.id}`, `/staff/queue/${entry.id}/call`)}
                 loading={isWorking('call')}
@@ -31,6 +40,8 @@ function EntryActions({ entry, onAction, loadingId }) {
             >
                 Call
             </AsyncButton>
+        ),
+        skip: (
             <AsyncButton
                 onClick={() => onAction(`skip-${entry.id}`, `/staff/queue/${entry.id}/skip`)}
                 loading={isWorking('skip')}
@@ -40,6 +51,8 @@ function EntryActions({ entry, onAction, loadingId }) {
             >
                 Skip
             </AsyncButton>
+        ),
+        begin: (
             <AsyncButton
                 onClick={() => onAction(`begin-${entry.id}`, `/staff/queue/${entry.id}/begin`)}
                 loading={isWorking('begin')}
@@ -49,6 +62,8 @@ function EntryActions({ entry, onAction, loadingId }) {
             >
                 Begin
             </AsyncButton>
+        ),
+        done: (
             <AsyncButton
                 onClick={() => onAction(`complete-${entry.id}`, `/staff/queue/${entry.id}/complete`)}
                 loading={isWorking('complete')}
@@ -58,6 +73,36 @@ function EntryActions({ entry, onAction, loadingId }) {
             >
                 Done
             </AsyncButton>
+        ),
+        recall: (
+            <AsyncButton
+                onClick={() => onAction(`recall-${entry.id}`, `/staff/queue/${entry.id}/recall`)}
+                loading={isWorking('recall')}
+                loadingText="Recalling..."
+                variant="outline"
+                className="px-2.5 py-1 text-xs font-semibold border-amber-200 text-amber-800 hover:bg-amber-50 rounded"
+            >
+                Recall
+            </AsyncButton>
+        ),
+        cancel: (
+            <AsyncButton
+                onClick={() => onAction(`cancel-${entry.id}`, `/staff/queue/${entry.id}/cancel`)}
+                loading={isWorking('cancel')}
+                loadingText="Cancelling..."
+                variant="outline"
+                className="px-2.5 py-1 text-xs font-semibold border-rose-200 text-rose-700 hover:bg-rose-50 rounded"
+            >
+                Cancel
+            </AsyncButton>
+        ),
+    };
+
+    return (
+        <span className="inline-flex flex-wrap gap-1.5 ml-3">
+            {allowed.map((action) => (
+                <span key={action}>{buttons[action]}</span>
+            ))}
         </span>
     );
 }
@@ -289,7 +334,7 @@ export default function Dashboard() {
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center space-x-2">
+                                        <div className="flex flex-wrap items-center gap-2">
                                             {hasActiveServing ? (
                                                 <AsyncButton
                                                     onClick={() => handleAction('complete-and-call-next', `/staff/queue/complete-and-call-next?department_id=${department_id}`)}
@@ -311,6 +356,9 @@ export default function Dashboard() {
                                                 >
                                                     {waitingCount > 0 ? `Call Next Patient (${nextWaitingPatient?.queue_number})` : 'Queue Empty (0 Waiting)'}
                                                 </AsyncButton>
+                                            )}
+                                            {snapshot.serving && (
+                                                <EntryActions entry={snapshot.serving} onAction={handleAction} loadingId={loadingActionId} />
                                             )}
                                         </div>
                                     </CardContent>
@@ -391,6 +439,53 @@ export default function Dashboard() {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Skipped — recall path back into the queue */}
+                                {snapshot.skipped.length > 0 && (
+                                    <div className="space-y-3">
+                                        <h3 className="text-sm font-semibold tracking-tight text-zinc-900">
+                                            Skipped ({snapshot.skipped.length})
+                                        </h3>
+                                        <div className="divide-y divide-zinc-100 bg-white rounded-md border border-amber-200 overflow-hidden shadow-sm">
+                                            {snapshot.skipped.map((e) => (
+                                                <div key={e.id} className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                                    <div className="flex items-center space-x-3">
+                                                        <span className="font-mono font-bold text-base text-zinc-900">{e.queue_number}</span>
+                                                        <Link
+                                                            href={`/staff/patients/${e.patient?.id}`}
+                                                            className="font-semibold text-xs text-zinc-900 hover:text-blue-600 hover:underline"
+                                                        >
+                                                            {e.patient?.full_name}
+                                                        </Link>
+                                                        <Badge variant="amber" className="text-[9px]">Skipped</Badge>
+                                                    </div>
+                                                    <EntryActions entry={e} onAction={handleAction} loadingId={loadingActionId} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Cancelled — read-only, stays visible per queue policy */}
+                                {snapshot.cancelled.length > 0 && (
+                                    <div className="space-y-3">
+                                        <h3 className="text-sm font-semibold tracking-tight text-zinc-900">
+                                            Cancelled ({snapshot.cancelled.length})
+                                        </h3>
+                                        <div className="divide-y divide-zinc-100 bg-white rounded-md border border-zinc-200 overflow-hidden shadow-sm">
+                                            {snapshot.cancelled.map((e) => (
+                                                <div key={e.id} className="p-3 flex items-center space-x-3">
+                                                    <span className="font-mono font-bold text-base text-zinc-400 line-through">{e.queue_number}</span>
+                                                    <span className="font-semibold text-xs text-zinc-500">{e.patient?.full_name}</span>
+                                                    <Badge variant="outline" className="text-[9px]">Cancelled</Badge>
+                                                    {e.cancel_reason && (
+                                                        <span className="text-[10px] text-zinc-400 italic">{e.cancel_reason}</span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
                     </div>
