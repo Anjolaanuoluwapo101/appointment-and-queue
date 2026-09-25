@@ -295,7 +295,7 @@ class QueueService
                 ['status' => QueueEntry::STATUS_WAITING], ['status' => QueueEntry::STATUS_CALLED]);
 
             $this->broadcast($fresh);
-            $this->sendProgressiveNotices($fresh->department);
+            $this->sendProgressiveNotices($fresh->department_id);
 
             return $fresh;
         });
@@ -341,7 +341,7 @@ class QueueService
             ['status' => QueueEntry::STATUS_CALLED], ['status' => QueueEntry::STATUS_SKIPPED]);
 
         $this->broadcast($entry->fresh());
-        $this->sendProgressiveNotices($entry->department);
+        $this->sendProgressiveNotices($entry->department_id);
 
         return $entry->fresh();
     }
@@ -399,7 +399,7 @@ class QueueService
             AuditLog::record($fresh->hospital_id, $fresh->action_by, 'consultation_completed', $fresh,
                 ['status' => QueueEntry::STATUS_IN_CONSULTATION], ['status' => QueueEntry::STATUS_COMPLETED]);
 
-            $this->sendProgressiveNotices($fresh->department);
+            $this->sendProgressiveNotices($fresh->department_id);
         });
     }
 
@@ -435,7 +435,7 @@ class QueueService
             ['status' => $before], ['status' => QueueEntry::STATUS_CANCELLED]);
 
         $this->broadcast($fresh);
-        $this->sendProgressiveNotices($fresh->department);
+        $this->sendProgressiveNotices($fresh->department_id);
 
         return $fresh;
     }
@@ -447,6 +447,11 @@ class QueueService
      */
     public function snapshot(Department $department, ?string $date = null, bool $public = false): array
     {
+        // Hardening: callers (controllers, events, console) must not need
+        // to remember this — a missing hospital relation used to throw
+        // LazyLoadingViolationException on the queue board.
+        $department->loadMissing('hospital:id,timezone');
+
         $day = $date ?? Carbon::now($department->hospital->timezone ?? 'Africa/Lagos')->toDateString();
 
         $entries = QueueEntry::where('department_id', $department->id)
@@ -485,6 +490,8 @@ class QueueService
      */
     public function positionFor(QueueEntry $entry): array
     {
+        $entry->loadMissing('department');
+
         $snapshot = $this->snapshot($entry->department);
         $ordered = collect($snapshot['waiting'])->pluck('id');
 
@@ -570,8 +577,14 @@ class QueueService
         PatientQueueUpdated::dispatch($entry->id);
     }
 
-    private function sendProgressiveNotices(Department $department): void
+    private function sendProgressiveNotices(int $departmentId): void
     {
+        $department = Department::with('hospital:id,timezone')->find($departmentId);
+
+        if ($department === null) {
+            return;
+        }
+
         $snapshot = $this->snapshot($department);
 
         foreach ($snapshot['waiting'] as $index => $entry) {

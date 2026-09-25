@@ -24,7 +24,7 @@ class QueueController extends Controller
     public function dashboard(Request $request, QueueService $queue): Response
     {
         $department = $this->department($request);
-        $activeDepts = Department::where('is_active', true)->orderBy('name')->get(['id', 'name', 'room_label']);
+        $activeDepts = Department::where('is_active', true)->with('hospital:id,timezone')->orderBy('name')->get(['id', 'name', 'room_label']);
 
         $overview = $activeDepts->map(function ($dept) use ($queue) {
             $snap = $queue->snapshot($dept);
@@ -64,7 +64,7 @@ class QueueController extends Controller
      */
     public function practitionerBoard(Request $request, QueueService $queue): Response
     {
-        $practitioner = $request->user()->practitioner;
+        $practitioner = $request->user()->loadMissing('practitioner')->practitioner;
 
         abort_unless($practitioner !== null, 404, 'No practitioner profile linked.');
 
@@ -246,7 +246,7 @@ class QueueController extends Controller
     {
         $id = $request->query('department_id');
 
-        return is_numeric($id) ? Department::find((int) $id) : Department::where('is_active', true)->orderBy('id')->first();
+        return is_numeric($id) ? Department::with('hospital:id,timezone')->find((int) $id) : Department::where('is_active', true)->with('hospital:id,timezone')->orderBy('id')->first();
     }
 
     private function actingPractitionerId(Request $request): ?int
