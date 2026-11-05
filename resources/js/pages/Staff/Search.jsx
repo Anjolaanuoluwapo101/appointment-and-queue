@@ -42,10 +42,10 @@ export default function Search() {
     };
 
     return (
-        <AppLayout activeRoute="staff.search">
+        <AppLayout>
             <div className="space-y-6 max-w-5xl mx-auto bg-white py-6">
                 <div className="border-b border-zinc-100 pb-4">
-                    <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Staff Search & Directory Lookup</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Global Search</h1>
                     <p className="text-xs text-zinc-500 mt-1">Cross-lookup patients by name, phone, hospital no., queue token, or appointment ID.</p>
                 </div>
 

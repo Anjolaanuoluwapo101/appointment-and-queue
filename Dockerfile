@@ -2,7 +2,7 @@
 #
 # Appointment System — single-container production image:
 #   nginx (port 80) + PHP-FPM + queue worker + Reverb + scheduler
-# Database is external (Supabase Postgres via DB_* env vars).
+# Database is external (Neon Postgres via DB_* env vars).
 #
 # Build:  docker build -t appointment-system .
 # Run:    docker run -p 10000:10000 --env-file .env appointment-system
@@ -49,7 +49,7 @@ RUN composer install \
 # ---------- Stage 3: runtime ----------
 FROM php:8.3-fpm AS app
 
-# System deps + PHP extensions (pgsql for Supabase, zip/xml/gd for
+# System deps + PHP extensions (pgsql for Neon, zip/xml/gd for
 # maatwebsite/excel + dompdf, sockets/pcntl for Reverb + queue worker)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nginx \

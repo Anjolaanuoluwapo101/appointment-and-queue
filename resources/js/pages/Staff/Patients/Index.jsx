@@ -48,7 +48,7 @@ export default function Index() {
     const isFiltered = !!search || (gender && gender !== 'all') || (sort && sort !== 'full_name');
 
     return (
-        <AppLayout activeRoute="staff.patients">
+        <AppLayout>
             <div className="space-y-6 max-w-6xl mx-auto bg-white py-4 px-2 sm:px-4">
                 {/* Header Strip */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-100 pb-4">
@@ -174,7 +174,7 @@ export default function Index() {
                                                 {p.patient_number || `PAT-#${p.id}`}
                                             </TableCell>
                                             <TableCell className="font-semibold text-xs text-zinc-900">
-                                                <Link href={`/staff/patients/${p.id}`} className="hover:text-blue-600 hover:underline">
+                                                <Link href={`/staff/patients/${p.id}`} className="hover:text-zinc-900 hover:underline">
                                                     {p.full_name}
                                                 </Link>
                                             </TableCell>
@@ -190,7 +190,7 @@ export default function Index() {
                                             <TableCell className="text-right">
                                                 <Link
                                                     href={`/staff/patients/${p.id}`}
-                                                    className="inline-flex items-center text-xs font-semibold text-zinc-900 hover:text-blue-600 underline"
+                                                    className="inline-flex items-center text-xs font-semibold text-zinc-900 hover:text-zinc-900 underline"
                                                 >
                                                     View File →
                                                 </Link>

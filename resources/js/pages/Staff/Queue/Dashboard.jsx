@@ -166,7 +166,7 @@ export default function Dashboard() {
     const totalServingAcrossDepts = overview?.filter((d) => d.serving_number).length ?? 0;
 
     return (
-        <AppLayout activeRoute="staff.queue">
+        <AppLayout>
             <div className="space-y-6 max-w-7xl mx-auto bg-white py-4 px-2 sm:px-4">
                 {/* Header Command Bar */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-100 pb-4">
@@ -178,26 +178,6 @@ export default function Dashboard() {
                         <p className="text-xs text-zinc-500 mt-1">
                             Real-time department queue control, quick desk check-in, and instant patient file access.
                         </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Link
-                            href="/staff/search"
-                            className="bg-white hover:bg-zinc-50 text-zinc-700 font-medium px-3 py-2 rounded text-xs border border-zinc-200 transition-colors shadow-sm"
-                        >
-                            Search Patient
-                        </Link>
-                        <Link
-                            href="/staff/patients"
-                            className="bg-white hover:bg-zinc-50 text-zinc-700 font-medium px-3 py-2 rounded text-xs border border-zinc-200 transition-colors shadow-sm"
-                        >
-                            Patient Directory
-                        </Link>
-                        <Link
-                            href="/staff/walk-in"
-                            className="bg-zinc-900 hover:bg-zinc-800 text-white font-semibold px-4 py-2 rounded text-xs transition-colors shadow-sm"
-                        >
-                            + Walk-in Ticket
-                        </Link>
                     </div>
                 </div>
 
@@ -312,7 +292,7 @@ export default function Dashboard() {
                                                     <div className="flex items-center space-x-2">
                                                         <Link
                                                             href={`/staff/patients/${snapshot.serving.patient.id}`}
-                                                            className="text-xs font-bold text-zinc-900 hover:text-blue-600 hover:underline"
+                                                            className="text-xs font-bold text-zinc-900 hover:text-zinc-900 hover:underline"
                                                         >
                                                             {snapshot.serving.patient.full_name}
                                                         </Link>
@@ -392,7 +372,7 @@ export default function Dashboard() {
                                                                 <div className="flex items-center space-x-2">
                                                                     <Link
                                                                         href={`/staff/patients/${e.patient?.id}`}
-                                                                        className="font-semibold text-xs text-zinc-900 hover:text-blue-600 hover:underline"
+                                                                        className="font-semibold text-xs text-zinc-900 hover:text-zinc-900 hover:underline"
                                                                     >
                                                                         {e.patient?.full_name}
                                                                     </Link>
@@ -453,7 +433,7 @@ export default function Dashboard() {
                                                         <span className="font-mono font-bold text-base text-zinc-900">{e.queue_number}</span>
                                                         <Link
                                                             href={`/staff/patients/${e.patient?.id}`}
-                                                            className="font-semibold text-xs text-zinc-900 hover:text-blue-600 hover:underline"
+                                                            className="font-semibold text-xs text-zinc-900 hover:text-zinc-900 hover:underline"
                                                         >
                                                             {e.patient?.full_name}
                                                         </Link>
@@ -513,7 +493,7 @@ export default function Dashboard() {
                                                     <div>
                                                         <Link
                                                             href={`/staff/patients/${arrival.patient_id}`}
-                                                            className="font-semibold text-xs text-zinc-900 hover:text-blue-600 hover:underline block"
+                                                            className="font-semibold text-xs text-zinc-900 hover:text-zinc-900 hover:underline block"
                                                         >
                                                             {arrival.patient?.full_name}
                                                         </Link>

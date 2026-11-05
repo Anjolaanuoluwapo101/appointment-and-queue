@@ -17,11 +17,11 @@ export default function AsyncButton({
     const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed rounded-md px-4 py-2 text-sm shadow-sm';
 
     const variants = {
-        primary: 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500 active:scale-[0.98]',
-        secondary: 'bg-gray-600 hover:bg-gray-700 text-white focus:ring-gray-500 active:scale-[0.98]',
+        primary: 'bg-zinc-900 hover:bg-zinc-800 text-white focus:ring-zinc-900 active:scale-[0.98]',
+        secondary: 'bg-zinc-600 hover:bg-zinc-700 text-white focus:ring-zinc-600 active:scale-[0.98]',
         success: 'bg-emerald-600 hover:bg-emerald-700 text-white focus:ring-emerald-500 active:scale-[0.98]',
         danger: 'bg-rose-600 hover:bg-rose-700 text-white focus:ring-rose-500 active:scale-[0.98]',
-        outline: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-blue-500 active:scale-[0.98]',
+        outline: 'border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 focus:ring-zinc-900 active:scale-[0.98]',
     };
 
     const currentVariant = variants[variant] || variants.primary;

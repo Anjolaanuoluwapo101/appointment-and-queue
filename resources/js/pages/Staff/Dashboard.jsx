@@ -35,28 +35,6 @@ export default function Dashboard() {
                         </p>
                     </div>
 
-                    {/* Quick Access Actions */}
-                    <div className="flex flex-wrap gap-2 text-xs">
-                        <Link href="/staff/queue" className="bg-zinc-900 hover:bg-zinc-800 text-white font-semibold px-3 py-1.5 rounded transition-colors shadow-sm">
-                            Queue Desk
-                        </Link>
-                        <Link href="/staff/walk-in" className="bg-white hover:bg-zinc-50 text-zinc-700 font-medium px-3 py-1.5 rounded border border-zinc-200 transition-colors shadow-sm">
-                            + Walk-In Ticket
-                        </Link>
-                        <Link href="/staff/search" className="bg-white hover:bg-zinc-50 text-zinc-700 font-medium px-3 py-1.5 rounded border border-zinc-200 transition-colors shadow-sm">
-                            Search
-                        </Link>
-                        {(user?.role === 'practitioner' || user?.role === 'admin') && (
-                            <Link href="/staff/my-queue" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3 py-1.5 rounded transition-colors shadow-sm">
-                                My Queue Desk
-                            </Link>
-                        )}
-                        {user?.role === 'admin' && (
-                            <Link href="/admin/dashboard" className="bg-zinc-100 hover:bg-zinc-200 text-zinc-900 font-semibold px-3 py-1.5 rounded border border-zinc-300 transition-colors">
-                                Admin Console
-                            </Link>
-                        )}
-                    </div>
                 </div>
 
                 {/* Today's Appointments Section */}
@@ -92,6 +70,18 @@ export default function Dashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="flex flex-wrap gap-3 text-xs font-medium text-zinc-700">
+                            <Link href="/staff/queue" className="hover:text-zinc-900 underline">Queue Desk</Link>
+                            <span>•</span>
+                            <Link href="/staff/walk-in" className="hover:text-zinc-900 underline">+ Walk-In Ticket</Link>
+                            <span>•</span>
+                            <Link href="/staff/search" className="hover:text-zinc-900 underline">Global Search</Link>
+                            <span>•</span>
+                            {(user?.role === 'practitioner' || user?.role === 'admin') && (
+                                <>
+                                    <Link href="/staff/my-queue" className="hover:text-zinc-900 underline">My Queue Desk</Link>
+                                    <span>•</span>
+                                </>
+                            )}
                             <Link href="/staff/patients" className="hover:text-zinc-900 underline">Patient Directory</Link>
                             <span>•</span>
                             <Link href="/staff/appointments" className="hover:text-zinc-900 underline">Appointment History</Link>

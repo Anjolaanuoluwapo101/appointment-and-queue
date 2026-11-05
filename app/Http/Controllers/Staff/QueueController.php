@@ -12,6 +12,7 @@ use App\Services\QueueService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -23,8 +24,20 @@ class QueueController extends Controller
 {
     public function dashboard(Request $request, QueueService $queue): Response
     {
+        $user = $request->user();
+        $ownDeptIds = $this->ownDepartmentIds($user);
+
         $department = $this->department($request);
-        $activeDepts = Department::where('is_active', true)->with('hospital:id,timezone')->orderBy('name')->get(['id', 'name', 'room_label']);
+
+        $activeDepts = Department::where('is_active', true)
+            ->with('hospital:id,timezone')
+            ->when($ownDeptIds !== null, fn ($query) => $query->whereIn('id', $ownDeptIds))
+            ->orderBy('name')
+            ->get(['id', 'name', 'room_label']);
+
+        // Resolve from the scoped list so practitioners can never land on
+        // (or hand-craft a ?department_id for) another department.
+        $department = $activeDepts->firstWhere('id', $department?->id) ?? $activeDepts->first();
 
         $overview = $activeDepts->map(function ($dept) use ($queue) {
             $snap = $queue->snapshot($dept);
@@ -247,6 +260,28 @@ class QueueController extends Controller
         $id = $request->query('department_id');
 
         return is_numeric($id) ? Department::with('hospital:id,timezone')->find((int) $id) : Department::where('is_active', true)->with('hospital:id,timezone')->orderBy('id')->first();
+    }
+
+    /**
+     * Practitioners see only their own departments everywhere on this
+     * board (overview, tabs, snapshot). Everyone else sees the hospital.
+     * Returns null for full access.
+     *
+     * @return Collection<int, int>|null
+     */
+    private function ownDepartmentIds(User $user)
+    {
+        if ($user->role !== User::ROLE_PRACTITIONER) {
+            return null;
+        }
+
+        $practitioner = $user->loadMissing('practitioner')->practitioner;
+
+        if ($practitioner === null) {
+            return collect();
+        }
+
+        return $practitioner->departments()->pluck('departments.id');
     }
 
     private function actingPractitionerId(Request $request): ?int

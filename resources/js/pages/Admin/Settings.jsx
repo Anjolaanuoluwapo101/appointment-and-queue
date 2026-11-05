@@ -37,7 +37,7 @@ export default function Settings() {
 
     return (
         <AppLayout>
-            <div className="space-y-6 max-w-2xl mx-auto bg-white py-6">
+            <div className="max-w-2xl mx-auto space-y-6">
                 <div className="border-b border-zinc-100 pb-4">
                     <h1 className="text-2xl font-bold tracking-tight text-zinc-900">System Configuration Settings</h1>
                     <p className="text-xs text-zinc-500 mt-1">Configure session timeouts, booking windows, and queue threshold parameters</p>

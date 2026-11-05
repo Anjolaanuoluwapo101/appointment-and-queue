@@ -18,23 +18,6 @@ export default function Dashboard() {
                         <p className="text-xs text-zinc-500 mt-1">Hospital system analytics, revenue counters, and operational management</p>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 text-xs font-semibold">
-                        <Link href="/admin/staff" className="bg-zinc-900 text-white px-3 py-1.5 rounded shadow-sm hover:bg-zinc-800">
-                            Staff Accounts
-                        </Link>
-                        <Link href="/admin/departments" className="bg-white border border-zinc-200 text-zinc-800 px-3 py-1.5 rounded hover:bg-zinc-50">
-                            Departments
-                        </Link>
-                        <Link href="/admin/practitioners" className="bg-white border border-zinc-200 text-zinc-800 px-3 py-1.5 rounded hover:bg-zinc-50">
-                            Practitioners
-                        </Link>
-                        <Link href="/admin/schedules" className="bg-white border border-zinc-200 text-zinc-800 px-3 py-1.5 rounded hover:bg-zinc-50">
-                            Schedules
-                        </Link>
-                        <Link href="/admin/reports" className="bg-white border border-zinc-200 text-zinc-800 px-3 py-1.5 rounded hover:bg-zinc-50">
-                            Reports
-                        </Link>
-                    </div>
                 </div>
 
                 {/* KPI Metrics Grid */}
@@ -110,6 +93,33 @@ export default function Dashboard() {
                         </Card>
                     </div>
                 )}
+
+                <Card className="bg-white border border-zinc-200">
+                    <CardHeader>
+                        <CardTitle className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Quick Links</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-wrap gap-3 text-xs font-medium text-zinc-700">
+                            <Link href="/admin/staff" className="hover:text-zinc-900 underline">Staff Accounts</Link>
+                            <span>•</span>
+                            <Link href="/admin/departments" className="hover:text-zinc-900 underline">Departments</Link>
+                            <span>•</span>
+                            <Link href="/admin/practitioners" className="hover:text-zinc-900 underline">Practitioners</Link>
+                            <span>•</span>
+                            <Link href="/admin/schedules" className="hover:text-zinc-900 underline">Schedules</Link>
+                            <span>•</span>
+                            <Link href="/admin/reports" className="hover:text-zinc-900 underline">Reports</Link>
+                            <span>•</span>
+                            <Link href="/admin/audit-log" className="hover:text-zinc-900 underline">Audit Log</Link>
+                            <span>•</span>
+                            <Link href="/admin/exceptions" className="hover:text-zinc-900 underline">Exceptions</Link>
+                            <span>•</span>
+                            <Link href="/admin/bulk-cancellation" className="hover:text-zinc-900 underline">Bulk Cancellation</Link>
+                            <span>•</span>
+                            <Link href="/admin/settings" className="hover:text-zinc-900 underline">Settings</Link>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </AppLayout>
     );

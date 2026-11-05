@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export default function AppLayout({ children }) {
@@ -7,6 +7,30 @@ export default function AppLayout({ children }) {
     const currentUrl = usePage().url;
     const { t, i18n } = useTranslation();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [moreOpen, setMoreOpen] = useState(false);
+    const moreRef = useRef(null);
+
+    useEffect(() => {
+        if (!moreOpen) return undefined;
+
+        const handleClickOutside = (e) => {
+            if (moreRef.current && !moreRef.current.contains(e.target)) {
+                setMoreOpen(false);
+            }
+        };
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                setMoreOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [moreOpen]);
 
     const user = auth?.user;
     const role = user?.role ?? 'guest';
@@ -74,6 +98,12 @@ export default function AppLayout({ children }) {
                                 <Link href="/patient/appointments" className={navLinkClass('/patient/appointments')}>
                                     My Appointments
                                 </Link>
+                                <Link href="/patient/profile" className={navLinkClass('/patient/profile')}>
+                                    Profile
+                                </Link>
+                                <Link href="/notifications" className={navLinkClass('/notifications')}>
+                                    Notifications
+                                </Link>
                             </>
                         )}
 
@@ -88,6 +118,9 @@ export default function AppLayout({ children }) {
                                 <Link href="/staff/search" className={navLinkClass('/staff/search')}>
                                     Patient Search
                                 </Link>
+                                <Link href="/notifications" className={navLinkClass('/notifications')}>
+                                    Notifications
+                                </Link>
                             </>
                         )}
 
@@ -100,10 +133,16 @@ export default function AppLayout({ children }) {
                                     + Walk-In Ticket
                                 </Link>
                                 <Link href="/staff/search" className={navLinkClass('/staff/search')}>
-                                    Search
+                                    Global Search
                                 </Link>
                                 <Link href="/staff/patients" className={navLinkClass('/staff/patients')}>
                                     Patient Directory
+                                </Link>
+                                <Link href="/staff/appointments" className={navLinkClass('/staff/appointments')}>
+                                    Appointments
+                                </Link>
+                                <Link href="/notifications" className={navLinkClass('/notifications')}>
+                                    Notifications
                                 </Link>
                             </>
                         )}
@@ -131,6 +170,43 @@ export default function AppLayout({ children }) {
                                 <Link href="/admin/audit-log" className={navLinkClass('/admin/audit-log')}>
                                     Audit Log
                                 </Link>
+
+                                <div className="relative" ref={moreRef}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setMoreOpen((open) => !open)}
+                                        aria-haspopup="true"
+                                        aria-expanded={moreOpen}
+                                        className={[
+                                            'px-3 py-1.5 rounded font-medium transition-colors inline-flex items-center gap-1',
+                                            moreOpen || ['/admin/settings', '/admin/bulk-cancellation', '/admin/notification-logs', '/admin/exceptions'].some((path) => isActive(path))
+                                                ? 'bg-zinc-900 text-white font-semibold shadow-sm'
+                                                : 'text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100',
+                                        ].join(' ')}
+                                    >
+                                        More
+                                        <svg className={`w-3 h-3 transition-transform ${moreOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+
+                                    {moreOpen && (
+                                        <div className="absolute left-0 mt-1 w-52 bg-white border border-zinc-200 rounded-md shadow-lg py-1 z-50">
+                                            <Link href="/admin/notification-logs" onClick={() => setMoreOpen(false)} className="block px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-100">
+                                                Notification Logs
+                                            </Link>
+                                            <Link href="/admin/bulk-cancellation" onClick={() => setMoreOpen(false)} className="block px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-100">
+                                                Bulk Cancellation
+                                            </Link>
+                                            <Link href="/admin/exceptions" onClick={() => setMoreOpen(false)} className="block px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-100">
+                                                Schedule Exceptions
+                                            </Link>
+                                            <Link href="/admin/settings" onClick={() => setMoreOpen(false)} className="block px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-100">
+                                                Settings
+                                            </Link>
+                                        </div>
+                                    )}
+                                </div>
                             </>
                         )}
                     </nav>
@@ -188,21 +264,26 @@ export default function AppLayout({ children }) {
                             <Link href="/patient/dashboard" className={mobileNavLinkClass('/patient/dashboard')}>Dashboard</Link>
                             <Link href="/patient/book" className={mobileNavLinkClass('/patient/book')}>Book Appointment</Link>
                             <Link href="/patient/appointments" className={mobileNavLinkClass('/patient/appointments')}>My Appointments</Link>
+                            <Link href="/patient/profile" className={mobileNavLinkClass('/patient/profile')}>Profile</Link>
+                            <Link href="/notifications" className={mobileNavLinkClass('/notifications')}>Notifications</Link>
                         </>
                     )}
                     {role === 'practitioner' && (
                         <>
                             <Link href="/staff/my-queue" className={mobileNavLinkClass('/staff/my-queue')}>My Queue Desk</Link>
                             <Link href="/staff/dashboard" className={mobileNavLinkClass('/staff/dashboard')}>Staff Dashboard</Link>
-                            <Link href="/staff/search" className={mobileNavLinkClass('/staff/search')}>Patient Search</Link>
+                            <Link href="/staff/search" className={mobileNavLinkClass('/staff/search')}>Global Search</Link>
+                            <Link href="/notifications" className={mobileNavLinkClass('/notifications')}>Notifications</Link>
                         </>
                     )}
                     {(role === 'receptionist' || role === 'staff') && (
                         <>
                             <Link href="/staff/queue" className={mobileNavLinkClass('/staff/queue')}>Queue Desk</Link>
                             <Link href="/staff/walk-in" className={mobileNavLinkClass('/staff/walk-in')}>+ Walk-In Ticket</Link>
-                            <Link href="/staff/search" className={mobileNavLinkClass('/staff/search')}>Search</Link>
+                            <Link href="/staff/search" className={mobileNavLinkClass('/staff/search')}>Global Search</Link>
                             <Link href="/staff/patients" className={mobileNavLinkClass('/staff/patients')}>Patient Directory</Link>
+                            <Link href="/staff/appointments" className={mobileNavLinkClass('/staff/appointments')}>Appointments</Link>
+                            <Link href="/notifications" className={mobileNavLinkClass('/notifications')}>Notifications</Link>
                         </>
                     )}
                     {role === 'admin' && (
@@ -214,6 +295,10 @@ export default function AppLayout({ children }) {
                             <Link href="/admin/schedules" className={mobileNavLinkClass('/admin/schedules')}>Schedules</Link>
                             <Link href="/admin/reports" className={mobileNavLinkClass('/admin/reports')}>Reports</Link>
                             <Link href="/admin/audit-log" className={mobileNavLinkClass('/admin/audit-log')}>Audit Log</Link>
+                            <Link href="/admin/notification-logs" className={mobileNavLinkClass('/admin/notification-logs')}>Notification Logs</Link>
+                            <Link href="/admin/bulk-cancellation" className={mobileNavLinkClass('/admin/bulk-cancellation')}>Bulk Cancellation</Link>
+                            <Link href="/admin/exceptions" className={mobileNavLinkClass('/admin/exceptions')}>Schedule Exceptions</Link>
+                            <Link href="/admin/settings" className={mobileNavLinkClass('/admin/settings')}>Settings</Link>
                         </>
                     )}
                 </div>

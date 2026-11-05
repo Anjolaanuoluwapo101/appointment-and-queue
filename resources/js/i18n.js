@@ -8,7 +8,7 @@ const resources = {
         translation: {
             app: {
                 name: 'Appointment System',
-                tagline: 'Inertia + React is wired. Supabase Postgres connected.',
+                tagline: 'Inertia + React is wired. Neon Postgres connected.',
             },
             nav: {
                 patientLogin: 'Patient login',

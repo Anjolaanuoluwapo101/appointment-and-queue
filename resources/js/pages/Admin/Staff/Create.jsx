@@ -1,4 +1,5 @@
 import { useForm, usePage } from '@inertiajs/react';
+import AppLayout from '../../../Layouts/AppLayout';
 import StaffForm from './Form';
 
 export default function Create() {
@@ -17,17 +18,21 @@ export default function Create() {
     };
 
     return (
-        <main className="p-12 font-sans max-w-lg">
-            <h1 className="text-3xl font-bold mb-6">New Staff Account</h1>
-            <StaffForm
-                data={data}
-                setData={setData}
-                errors={errors}
-                processing={processing}
-                onSubmit={submit}
-                practitioners={practitioners}
-                isCreate={true}
-            />
-        </main>
+        <AppLayout>
+            <div className="max-w-2xl mx-auto space-y-6">
+                <h1 className="text-2xl font-bold tracking-tight text-zinc-900">New Staff Account</h1>
+                <div className="bg-white p-6 rounded-xl border border-zinc-200 shadow-sm">
+                    <StaffForm
+                        data={data}
+                        setData={setData}
+                        errors={errors}
+                        processing={processing}
+                        onSubmit={submit}
+                        practitioners={practitioners}
+                        isCreate={true}
+                    />
+                </div>
+            </div>
+        </AppLayout>
     );
 }

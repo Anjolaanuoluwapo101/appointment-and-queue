@@ -145,17 +145,7 @@ export default function Queue() {
                             ))}
                         </select>
 
-                        {hasActiveServing ? (
-                            <AsyncButton
-                                onClick={handleCompleteAndCallNext}
-                                loading={loadingActionId === 'complete-and-call-next'}
-                                loadingText="Completing & calling..."
-                                variant="primary"
-                                className="bg-zinc-900 hover:bg-zinc-800 text-white font-semibold px-4 py-1.5 rounded text-xs shadow-sm"
-                            >
-                                Complete & Call Next {nextPatient ? `(${nextPatient.queue_number})` : ''}
-                            </AsyncButton>
-                        ) : (
+                        {!hasActiveServing && (
                             <AsyncButton
                                 onClick={handleCallNext}
                                 loading={loadingActionId === 'call-next'}

@@ -25,7 +25,7 @@ export default function Dashboard() {
 
                     <div className="flex items-center space-x-2">
                         <Link
-                            href="/patient/book/1/practitioners"
+                            href="/patient/book"
                             className="bg-zinc-900 hover:bg-zinc-800 text-white font-semibold px-4 py-2 rounded text-xs transition-colors shadow-sm"
                         >
                             + Book New Appointment
@@ -40,7 +40,7 @@ export default function Dashboard() {
                     {upcoming.length === 0 ? (
                         <Card className="bg-white border border-zinc-200 text-center py-8">
                             <p className="text-xs text-zinc-500">You currently have no upcoming appointments scheduled.</p>
-                            <Link href="/patient/book/1/practitioners" className="mt-3 inline-block font-semibold text-xs text-zinc-900 underline">
+                            <Link href="/patient/book" className="mt-3 inline-block font-semibold text-xs text-zinc-900 underline">
                                 Book an appointment now →
                             </Link>
                         </Card>

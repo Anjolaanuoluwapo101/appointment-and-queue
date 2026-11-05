@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm, usePage, Link } from '@inertiajs/react';
 import AppLayout from '../../../Layouts/AppLayout';
 import Card, { CardHeader, CardTitle, CardContent } from '../../../Components/Card';
@@ -14,13 +14,17 @@ export default function Create() {
         payment_mode: 'physical',
     });
 
+    useEffect(() => {
+        setData('patient_id', patient?.id ?? '');
+    }, [patient?.id]);
+
     const submit = (e) => {
         e.preventDefault();
         post('/staff/appointments');
     };
 
     return (
-        <AppLayout activeRoute="staff.appointments">
+        <AppLayout>
             <div className="max-w-2xl mx-auto space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
@@ -134,7 +138,7 @@ export default function Create() {
                         </CardHeader>
                         <CardContent>
                             <form onSubmit={submit} className="space-y-4">
-                                <input type="hidden" value={patient.id} />
+                                <input type="hidden" name="patient_id" value={patient.id} />
                                 <div>
                                     <label htmlFor="slot_id" className="block text-xs font-semibold text-zinc-700 mb-1">
                                         Time Slot

@@ -5,7 +5,7 @@ import './i18n';
 
 createInertiaApp({
     progress: {
-        color: '#2563eb',
+        color: '#18181b',
         showSpinner: true,
     },
     resolve: (name) => {

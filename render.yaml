@@ -29,19 +29,21 @@ services:
       - key: LOG_CHANNEL
         value: stderr
 
-      # --- Database (Supabase Postgres, keep your existing values) ---
+      # --- Database (Neon Postgres, pooled connection) ---
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
-        value: aws-0-eu-central-1.pooler.supabase.com
+        value: ep-silent-bread-be0jp9tg-pooler.c-9.us-east-2.aws.neon.tech
       - key: DB_PORT
         value: 5432
       - key: DB_DATABASE
-        value: postgres
+        value: neondb
       - key: DB_USERNAME
         sync: false
       - key: DB_PASSWORD
         sync: false
+      - key: DB_SSLMODE
+        value: require
 
       # --- Sessions / cache (database — Render disk is ephemeral, file would log everyone out on restart) ---
       - key: SESSION_DRIVER

@@ -14,7 +14,7 @@ export default function Reschedule() {
     };
 
     return (
-        <AppLayout activeRoute="patient.appointments">
+        <AppLayout>
             <div className="max-w-xl mx-auto space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
