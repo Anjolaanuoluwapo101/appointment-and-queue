@@ -101,7 +101,7 @@ class BookingService
 
         $oldSlotId = $appointment->slot_id;
 
-        $fresh = DB::transaction(function () use ($appointment, $newSlot, $oldSlotId): Appointment {
+        DB::transaction(function () use ($appointment, $newSlot, $oldSlotId): void {
             $claimed = AppointmentSlot::where('id', $newSlot->id)
                 ->where('is_active', true)
                 ->whereRaw('booked_count < capacity')
@@ -121,9 +121,9 @@ class BookingService
                 'scheduled_at' => $newSlot->starts_at,
                 'reschedule_count' => $appointment->reschedule_count + 1,
             ]);
-
-            return $appointment->fresh();
         });
+
+        $fresh = $appointment->refresh();
 
         $when = $fresh->scheduled_at->format('D d M H:i');
         $patient = $fresh->patient;
@@ -145,7 +145,7 @@ class BookingService
             throw ValidationException::withMessages(['appointment' => 'Only scheduled appointments can be cancelled.']);
         }
 
-        $fresh = DB::transaction(function () use ($appointment, $reason): Appointment {
+        DB::transaction(function () use ($appointment, $reason): void {
             if ($appointment->slot_id !== null && $appointment->status === Appointment::STATUS_SCHEDULED) {
                 AppointmentSlot::where('id', $appointment->slot_id)->where('booked_count', '>', 0)->decrement('booked_count');
             }
@@ -154,13 +154,13 @@ class BookingService
                 'status' => Appointment::STATUS_CANCELLED,
                 'cancellation_reason' => $reason,
             ]);
-
-            if ($appointment->isPaid()) {
-                ProcessRefund::dispatch($appointment->fresh()->id);
-            }
-
-            return $appointment->fresh();
         });
+
+        $fresh = $appointment->refresh();
+
+        if ($fresh->isPaid()) {
+            ProcessRefund::dispatch($fresh->id);
+        }
 
         $patient = $fresh->patient;
         $link = "/patient/appointments/{$fresh->id}";

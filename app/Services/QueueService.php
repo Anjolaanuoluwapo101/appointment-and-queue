@@ -14,6 +14,7 @@ use App\Models\QueueNumberSequence;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -514,28 +515,11 @@ class QueueService
                 ->where('department_id', $appointment->department_id)
                 ->whereDate('queue_date', $day)
                 ->lockForUpdate()
-                ->first();
-
-            if ($sequence === null) {
-                try {
-                    $sequence = QueueNumberSequence::create([
-                        'hospital_id' => $appointment->hospital_id,
-                        'department_id' => $appointment->department_id,
-                        'queue_date' => $day,
-                        'last_number' => 0,
-                    ]);
-                } catch (\Throwable $e) {
-                    $sequence = QueueNumberSequence::where('hospital_id', $appointment->hospital_id)
-                        ->where('department_id', $appointment->department_id)
-                        ->whereDate('queue_date', $day)
-                        ->lockForUpdate()
-                        ->firstOrFail();
-                }
-            }
+                ->first() ?? $this->createSequence($appointment, $day);
 
             $sequence->increment('last_number');
 
-            $number = $department->queue_prefix.str_pad((string) $sequence->fresh()->last_number, 3, '0', STR_PAD_LEFT);
+            $number = $department->queue_prefix.str_pad((string) $sequence->last_number, 3, '0', STR_PAD_LEFT);
 
             $entry = QueueEntry::create([
                 'hospital_id' => $appointment->hospital_id,
@@ -555,6 +539,30 @@ class QueueService
 
             return $entry;
         });
+    }
+
+    /**
+     * Claims the daily sequence row, tolerating a concurrent insert.
+     *
+     * The create runs in its own savepoint so a unique-constraint race rolls
+     * back only that statement, leaving the caller's transaction usable.
+     */
+    private function createSequence(Appointment $appointment, string $day): QueueNumberSequence
+    {
+        try {
+            return DB::transaction(fn (): QueueNumberSequence => QueueNumberSequence::create([
+                'hospital_id' => $appointment->hospital_id,
+                'department_id' => $appointment->department_id,
+                'queue_date' => $day,
+                'last_number' => 0,
+            ]));
+        } catch (UniqueConstraintViolationException) {
+            return QueueNumberSequence::where('hospital_id', $appointment->hospital_id)
+                ->where('department_id', $appointment->department_id)
+                ->whereDate('queue_date', $day)
+                ->lockForUpdate()
+                ->firstOrFail();
+        }
     }
 
     /** @return Builder<QueueEntry> */

@@ -89,6 +89,10 @@ return [
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '5432'),
+            'pooled' => true,
+            'direct' => [
+                'host' => env('DB_DIRECT_HOST', env('DB_HOST', '127.0.0.1')),
+            ],
             'database' => env('DB_DATABASE', 'laravel'),
             'username' => env('DB_USERNAME', 'root'),
             'password' => env('DB_PASSWORD', ''),
